@@ -1,6 +1,25 @@
 import { supabase } from '../../../lib/supabase.js';
 import { notifyError, notifyInfo } from '../../../components/toast/toast.js';
-import { state, loadInitialData, getUserDisplay, getOwnerOptions } from '../adminState.js';
+import { enableTableColumnFilters } from '../../../components/table-filters/table-filters.js';
+import { state, getUserDisplay, getOwnerOptions } from '../adminState.js';
+
+const refreshObjectsAndProfilesData = async () => {
+  const [objectsRes, profilesRes] = await Promise.all([
+    supabase.from('properties').select('*').order('number'),
+    supabase.from('profiles').select('*').order('full_name', { ascending: true, nullsFirst: false })
+  ]);
+
+  if (objectsRes.error) {
+    throw objectsRes.error;
+  }
+
+  if (profilesRes.error) {
+    throw profilesRes.error;
+  }
+
+  state.objects = objectsRes.data ?? [];
+  state.profiles = profilesRes.data ?? [];
+};
 
 export const renderObjectsSection = (content) => {
   const rows = state.objects
@@ -88,6 +107,8 @@ export const renderObjectsSection = (content) => {
   `;
 
   const propertyFormPanel = content.querySelector('#property-form-panel');
+  enableTableColumnFilters(content);
+
   const openPropertyFormButton = content.querySelector('#open-property-form-btn');
   const form = content.querySelector('#object-form');
   const resetBtn = content.querySelector('#object-form-reset');
@@ -148,7 +169,12 @@ export const renderObjectsSection = (content) => {
     }
 
     notifyInfo(objectId ? 'Property updated.' : 'Property created.');
-    await loadInitialData();
+    try {
+      await refreshObjectsAndProfilesData();
+    } catch (refreshError) {
+      notifyError(refreshError.message || 'Property saved, but refresh failed. Please reopen the section.');
+      return;
+    }
     renderObjectsSection(content);
   });
 
@@ -182,7 +208,12 @@ export const renderObjectsSection = (content) => {
       }
 
       notifyInfo('Property deleted.');
-      await loadInitialData();
+      try {
+        await refreshObjectsAndProfilesData();
+      } catch (refreshError) {
+        notifyError(refreshError.message || 'Property deleted, but refresh failed. Please reopen the section.');
+        return;
+      }
       renderObjectsSection(content);
     });
   });

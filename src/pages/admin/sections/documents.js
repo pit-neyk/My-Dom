@@ -1,5 +1,6 @@
 import { supabase } from '../../../lib/supabase.js';
 import { notifyError, notifyInfo } from '../../../components/toast/toast.js';
+import { enableTableColumnFilters } from '../../../components/table-filters/table-filters.js';
 import { getCurrentSession } from '../../../features/auth/auth.js';
 import { state, loadInitialData, formatDateTime } from '../adminState.js';
 import template from './documents.html?raw';
@@ -23,6 +24,8 @@ export const renderDocumentsSection = (content) => {
   content.innerHTML = template.replace('{{rows}}', rows);
 
   const documentFormPanel = content.querySelector('#document-form-panel');
+  enableTableColumnFilters(content);
+
   const openDocumentFormButton = content.querySelector('#open-document-form-btn');
   const form = content.querySelector('#document-form');
   const closeDocumentFormButton = content.querySelector('#close-document-form-btn');

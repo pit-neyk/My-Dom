@@ -68,7 +68,7 @@ export const loadInitialData = async () => {
     supabase.from('profiles').select('*').order('full_name', { ascending: true, nullsFirst: false }),
     supabase
       .from('payment_obligations')
-      .select('id,year,month,rate,independent_object_id,properties(number)')
+      .select('id,year,month,rate,independent_object_id,properties(number),payments(id,status,date)')
       .order('year', { ascending: false })
       .order('month', { ascending: false }),
     supabase.from('events').select('*').order('created_at', { ascending: false }),

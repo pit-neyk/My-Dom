@@ -13,3 +13,17 @@
   font-weight: 700;
   line-height: 1.1;
 }
+
+.admin-home-filter-card {
+  cursor: pointer;
+}
+
+.admin-home-filter-card:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 2px;
+}
+
+.admin-home-filter-card.active {
+  box-shadow: var(--bs-box-shadow) !important;
+  border: 1px solid var(--bs-primary) !important;
+}

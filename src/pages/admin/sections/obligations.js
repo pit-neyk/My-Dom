@@ -1,8 +1,25 @@
 import { supabase } from '../../../lib/supabase.js';
 import { notifyError, notifyInfo } from '../../../components/toast/toast.js';
+import { getCurrentSession } from '../../../features/auth/auth.js';
+import { enableTableColumnFilters } from '../../../components/table-filters/table-filters.js';
 import { state, loadInitialData, MONTH_NAMES, getPrevMonthYear } from '../adminState.js';
 
 export const renderObligationsSection = (content) => {
+  const toPaymentsArray = (payments) => {
+    if (Array.isArray(payments)) {
+      return payments;
+    }
+
+    if (payments && typeof payments === 'object') {
+      return [payments];
+    }
+
+    return [];
+  };
+
+  const isObligationPaid = (obligation) =>
+    toPaymentsArray(obligation.payments).some((payment) => payment?.status === 'paid');
+
   const objectChecks = state.objects
     .map(
       (obj) => `
@@ -16,19 +33,30 @@ export const renderObligationsSection = (content) => {
 
   const rows = state.obligations
     .slice(0, 200)
-    .map(
-      (ob) => `
+    .map((ob) => {
+      const paid = isObligationPaid(ob);
+
+      return `
       <tr>
+        <td class="text-center">
+          <input class="form-check-input" type="checkbox" data-obligation-select="${ob.id}" ${paid ? 'disabled' : ''} />
+        </td>
         <td>${MONTH_NAMES[ob.month - 1]} ${ob.year}</td>
         <td>${ob.properties?.number ?? '-'}</td>
         <td>${ob.rate}</td>
+        <td>
+          ${paid
+            ? '<span class="badge bg-success-subtle text-success-emphasis">Paid</span>'
+            : '<span class="badge bg-danger-subtle text-danger-emphasis">Pending</span>'}
+        </td>
         <td class="admin-inline-actions">
+          ${paid ? '' : `<button type="button" class="btn btn-sm btn-success" data-pay-obligation="${ob.id}">Pay</button>`}
           <button type="button" class="btn btn-sm btn-outline-primary" data-edit-obligation="${ob.id}">Edit</button>
           <button type="button" class="btn btn-sm btn-outline-danger" data-delete-obligation="${ob.id}">Delete</button>
         </td>
       </tr>
-    `
-    )
+    `;
+    })
     .join('');
 
   content.innerHTML = `
@@ -36,11 +64,23 @@ export const renderObligationsSection = (content) => {
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <h3 class="h5 mb-0">Existing Obligations</h3>
-          <button class="btn btn-sm btn-primary" type="button" id="open-obligation-form-btn">Create Obligation</button>
+          <div class="admin-inline-actions">
+            <button class="btn btn-sm btn-success" type="button" id="pay-selected-obligations-btn" disabled>Pay Selected</button>
+            <button class="btn btn-sm btn-primary" type="button" id="open-obligation-form-btn">Create Obligation</button>
+          </div>
         </div>
         <div class="admin-table-wrap table-responsive">
           <table class="table table-sm align-middle">
-            <thead><tr><th>Period</th><th>Object</th><th>Rate</th><th>Actions</th></tr></thead>
+            <thead>
+              <tr>
+                <th class="text-center"><input class="form-check-input" type="checkbox" id="select-all-obligations" aria-label="Select all pending obligations" /></th>
+                <th>Period</th>
+                <th>Object</th>
+                <th>Rate</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
             <tbody>${rows}</tbody>
           </table>
         </div>
@@ -85,7 +125,11 @@ export const renderObligationsSection = (content) => {
   `;
 
   const obligationFormPanel = content.querySelector('#obligation-form-panel');
+  enableTableColumnFilters(content, { skipColumns: ['', 'actions'] });
+
   const openObligationFormButton = content.querySelector('#open-obligation-form-btn');
+  const paySelectedButton = content.querySelector('#pay-selected-obligations-btn');
+  const selectAllCheckbox = content.querySelector('#select-all-obligations');
   const form = content.querySelector('#obligation-form');
   const closeObligationFormButton = content.querySelector('#close-obligation-form-btn');
 
@@ -110,6 +154,67 @@ export const renderObligationsSection = (content) => {
     form.elements.id.value = '';
     closeObligationForm();
   });
+
+  const getEligibleCheckboxes = () => Array.from(
+    content.querySelectorAll('[data-obligation-select]:not(:disabled)')
+  );
+
+  const getCheckedCheckboxes = () => getEligibleCheckboxes().filter((checkbox) => checkbox.checked);
+
+  const updateSelectionControls = () => {
+    const eligible = getEligibleCheckboxes();
+    const checked = getCheckedCheckboxes();
+
+    const hasEligible = eligible.length > 0;
+    selectAllCheckbox.disabled = !hasEligible;
+    selectAllCheckbox.checked = hasEligible && checked.length === eligible.length;
+    selectAllCheckbox.indeterminate = checked.length > 0 && checked.length < eligible.length;
+    paySelectedButton.disabled = checked.length === 0;
+  };
+
+  const markObligationsAsPaid = async (obligationIds) => {
+    if (!obligationIds.length) {
+      return;
+    }
+
+    const userId = getCurrentSession()?.user?.id ?? null;
+    const today = new Date().toISOString().split('T')[0];
+    const payload = obligationIds.map((obligationId) => ({
+      payment_obligation_id: obligationId,
+      status: 'paid',
+      date: today,
+      marked_by_user_id: userId
+    }));
+
+    const { error } = await supabase.from('payments').upsert(payload, { onConflict: 'payment_obligation_id' });
+
+    if (error) {
+      notifyError(error.message || 'Failed to mark selected obligations as paid.');
+      return;
+    }
+
+    await loadInitialData();
+    renderObligationsSection(content);
+  };
+
+  selectAllCheckbox.addEventListener('change', () => {
+    const shouldCheck = selectAllCheckbox.checked;
+    getEligibleCheckboxes().forEach((checkbox) => {
+      checkbox.checked = shouldCheck;
+    });
+    updateSelectionControls();
+  });
+
+  content.querySelectorAll('[data-obligation-select]').forEach((checkbox) => {
+    checkbox.addEventListener('change', updateSelectionControls);
+  });
+
+  paySelectedButton.addEventListener('click', async () => {
+    const selectedIds = getCheckedCheckboxes().map((checkbox) => checkbox.dataset.obligationSelect);
+    await markObligationsAsPaid(selectedIds);
+  });
+
+  updateSelectionControls();
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -218,6 +323,12 @@ export const renderObligationsSection = (content) => {
       const checkbox = form.querySelector(`input[name="object_ids"][value="${obligation.independent_object_id}"]`);
       if (checkbox) checkbox.checked = true;
       openObligationForm();
+    });
+  });
+
+  content.querySelectorAll('[data-pay-obligation]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      await markObligationsAsPaid([button.dataset.payObligation]);
     });
   });
 

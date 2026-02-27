@@ -1,5 +1,6 @@
 import { supabase } from '../../../lib/supabase.js';
 import { notifyError, notifyInfo } from '../../../components/toast/toast.js';
+import { enableTableColumnFilters } from '../../../components/table-filters/table-filters.js';
 import { getCurrentSession } from '../../../features/auth/auth.js';
 import { state, loadInitialData, formatDateTime } from '../adminState.js';
 
@@ -59,6 +60,8 @@ export const renderMassMessagesSection = (content) => {
   `;
 
   const massMessageFormPanel = content.querySelector('#mass-message-form-panel');
+  enableTableColumnFilters(content);
+
   const openMassMessageFormButton = content.querySelector('#open-mass-message-form-btn');
   const form = content.querySelector('#mass-message-form');
   const closeMassMessageFormButton = content.querySelector('#close-mass-message-form-btn');

@@ -1,5 +1,6 @@
 import { supabase } from '../../../lib/supabase.js';
 import { notifyError, notifyInfo } from '../../../components/toast/toast.js';
+import { enableTableColumnFilters } from '../../../components/table-filters/table-filters.js';
 import { getCurrentSession } from '../../../features/auth/auth.js';
 import { state, loadInitialData, formatDateTime } from '../adminState.js';
 
@@ -59,6 +60,8 @@ export const renderEventsSection = (content) => {
   `;
 
   const eventFormPanel = content.querySelector('#event-form-panel');
+  enableTableColumnFilters(content);
+
   const openEventFormButton = content.querySelector('#open-event-form-btn');
   const form = content.querySelector('#event-form');
   const closeEventFormButton = content.querySelector('#close-event-form-btn');

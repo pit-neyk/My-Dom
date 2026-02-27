@@ -1,5 +1,6 @@
 import { supabase } from '../../../lib/supabase.js';
 import { notifyError, notifyInfo } from '../../../components/toast/toast.js';
+import { enableTableColumnFilters } from '../../../components/table-filters/table-filters.js';
 import { state, loadInitialData, getUserDisplay, createNonPersistentClient } from '../adminState.js';
 
 export const renderOwnersSection = (content) => {
@@ -67,6 +68,8 @@ export const renderOwnersSection = (content) => {
   `;
 
   const ownerFormPanel = content.querySelector('#owner-form-panel');
+  enableTableColumnFilters(content);
+
   const openOwnerFormButton = content.querySelector('#open-owner-form-btn');
   const form = content.querySelector('#owner-form');
   const resetButton = content.querySelector('#owner-form-reset');

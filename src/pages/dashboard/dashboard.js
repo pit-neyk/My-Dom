@@ -2,6 +2,7 @@ import './dashboard.css';
 import { isAuthenticated, isAdmin, isImpersonating, getEffectiveUserId } from '../../features/auth/auth.js';
 import { navigateTo } from '../../router/router.js';
 import { supabase } from '../../lib/supabase.js';
+import { enableTableColumnFilters } from '../../components/table-filters/table-filters.js';
 import { notifyError, notifyInfo } from '../../components/toast/toast.js';
 
 const MONTH_NAMES = [
@@ -95,6 +96,8 @@ const buildSummaryHTML = (financials, objects) => {
       </div>
     </div>
   `;
+
+  enableTableColumnFilters(container, { skipColumns: ['action'] });
 };
 
 const buildObjectObligationsHTML = (obj) => {
