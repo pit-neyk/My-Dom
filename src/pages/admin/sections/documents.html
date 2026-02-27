@@ -1,0 +1,30 @@
+<div class="card border-0 shadow-sm admin-section-card">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3 class="h5 mb-0">Shared Documents</h3>
+      <button class="btn btn-sm btn-primary" type="button" id="open-document-form-btn">Upload Document</button>
+    </div>
+    <div class="admin-table-wrap table-responsive">
+      <table class="table table-sm align-middle">
+        <thead><tr><th>Name</th><th>Uploaded</th><th>Actions</th></tr></thead>
+        <tbody>{{rows}}</tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm d-none" id="document-form-panel">
+  <div class="card-body">
+    <h3 class="h5 mb-3">Upload & Share Documents</h3>
+    <form id="document-form" class="row g-3">
+      <div class="col-12">
+        <label class="form-label">Select file</label>
+        <input class="form-control" name="file" type="file" required />
+      </div>
+      <div class="col-12 admin-inline-actions">
+        <button class="btn btn-primary" type="submit">Upload Document</button>
+        <button class="btn btn-outline-secondary" type="button" id="close-document-form-btn">Close</button>
+      </div>
+    </form>
+  </div>
+</div>
