@@ -1,0 +1,91 @@
+<section class="admin-home">
+  <div class="row g-4">
+    <aside class="col-12 col-lg-3">
+      <div class="card border-0 shadow-sm sticky-top admin-home-sidebar">
+        <div class="card-body">
+          <h2 class="h6 mb-3">Admin Menu</h2>
+          <div class="nav flex-column nav-pills gap-2">
+            <a class="btn btn-outline-secondary text-start active" href="/admin" data-link="router">Admin Home</a>
+            <a class="btn btn-outline-secondary text-start" href="/admin/panel?section=objects" data-link="router">Properties</a>
+            <a class="btn btn-outline-secondary text-start" href="/admin/panel?section=owners" data-link="router">Owners & Contacts</a>
+            <a class="btn btn-outline-secondary text-start" href="/admin/panel?section=obligations" data-link="router">Payment Obligations</a>
+            <a class="btn btn-outline-secondary text-start" href="/admin/panel?section=events" data-link="router">Events</a>
+            <a class="btn btn-outline-secondary text-start" href="/admin/panel?section=documents" data-link="router">Documents</a>
+            <a class="btn btn-outline-secondary text-start" href="/admin/panel?section=messages" data-link="router">Mass Messages</a>
+            <a class="btn btn-outline-secondary text-start" href="/admin/panel?section=impersonation" data-link="router">View As User</a>
+            <a class="btn btn-outline-secondary text-start" href="/admin/panel?section=profile" data-link="router">My Profile</a>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="col-12 col-lg-9">
+      <h1 class="h4 mb-4">Admin Home</h1>
+
+      <div class="row g-3 mb-4">
+        <div class="col-12 col-md-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <p class="admin-home-label text-secondary mb-2">Properties</p>
+          <p class="admin-home-value mb-0" id="admin-total-properties">0</p>
+        </div>
+      </div>
+        </div>
+        <div class="col-12 col-md-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <p class="admin-home-label text-secondary mb-2">Without pending obligations</p>
+          <p class="admin-home-value text-success mb-0" id="admin-clear-properties">0</p>
+        </div>
+      </div>
+        </div>
+        <div class="col-12 col-md-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <p class="admin-home-label text-secondary mb-2">With pending obligations</p>
+          <p class="admin-home-value text-danger mb-0" id="admin-debt-properties">0</p>
+        </div>
+      </div>
+        </div>
+      </div>
+
+      <div class="row g-3 mb-4">
+        <div class="col-12 col-md-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <p class="admin-home-label text-success mb-2">Collected</p>
+          <p class="admin-home-value text-success mb-0" id="admin-total-collected">€0.00</p>
+        </div>
+      </div>
+        </div>
+        <div class="col-12 col-md-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <p class="admin-home-label text-danger mb-2">Still Due</p>
+          <p class="admin-home-value text-danger mb-0" id="admin-total-due">€0.00</p>
+        </div>
+      </div>
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <h2 class="h5 mb-3">Properties Overview</h2>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>Property</th>
+                  <th>Floor</th>
+                  <th>Status</th>
+                  <th class="text-end">Obligations</th>
+                </tr>
+              </thead>
+              <tbody id="admin-properties-overview"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

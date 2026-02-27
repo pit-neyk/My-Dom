@@ -2,14 +2,16 @@ import { renderHomePage } from '../pages/home/home.js';
 import { renderDashboardPage } from '../pages/dashboard/dashboard.js';
 import { renderLoginPage } from '../pages/login/login.js';
 import { renderRegisterPage } from '../pages/register/register.js';
-import { renderAdminPage } from '../pages/admin/admin.js';
+import { renderAdminPanelPage } from '../pages/admin/admin.js';
+import { renderAdminHomePage } from '../pages/admin-home/admin-home.js';
 
 export const routeMap = {
   '/': renderHomePage,
   '/login': renderLoginPage,
   '/register': renderRegisterPage,
   '/dashboard': renderDashboardPage,
-  '/admin': renderAdminPage
+  '/admin': renderAdminHomePage,
+  '/admin/panel': renderAdminPanelPage
 };
 
 export const navigationLinks = [
@@ -21,7 +23,8 @@ export const navigationLinks = [
   { href: '/payments', label: 'Payments' },
   { href: '/discussions', label: 'Discussions' },
   { href: '/profile', label: 'Profile' },
-  { href: '/admin', label: 'Admin Panel' }
+  { href: '/admin', label: 'Admin Home' },
+  { href: '/admin/panel', label: 'Admin Panel' }
 ];
 
 export const routeTitles = {
@@ -33,7 +36,8 @@ export const routeTitles = {
   '/payments': 'Payments',
   '/discussions': 'Discussions',
   '/profile': 'Profile',
-  '/admin': 'Admin Panel'
+  '/admin': 'Admin Home',
+  '/admin/panel': 'Admin Panel'
 };
 
 export const getRouteTitle = (path) => routeTitles[path] ?? null;

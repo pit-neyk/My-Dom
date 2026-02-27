@@ -112,13 +112,18 @@ const loadInitialData = async () => {
   state.messages = messagesRes.data ?? [];
 };
 
-const renderNav = (container, onSelect) => {
+const getRequestedSectionId = () => {
+  const sectionId = new URLSearchParams(window.location.search).get('section');
+  return ADMIN_SECTIONS.some((section) => section.id === sectionId) ? sectionId : 'objects';
+};
+
+const renderNav = (container, onSelect, activeSectionId = 'objects') => {
   container.innerHTML = ADMIN_SECTIONS
     .map(
-      (section, index) => `
+      (section) => `
         <button
           type="button"
-          class="btn btn-outline-secondary text-start admin-nav-btn ${index === 0 ? 'active' : ''}"
+          class="btn btn-outline-secondary text-start admin-nav-btn ${section.id === activeSectionId ? 'active' : ''}"
           data-section-id="${section.id}"
         >
           ${section.label}
@@ -1332,7 +1337,7 @@ const renderSection = (sectionId, content) => {
   }
 };
 
-export const renderAdminPage = async (container) => {
+export const renderAdminPanelPage = async (container) => {
   if (!isAuthenticated()) {
     navigateTo('/login');
     return;
@@ -1364,8 +1369,9 @@ export const renderAdminPage = async (container) => {
     return;
   }
 
-  renderNav(nav, (sectionId) => renderSection(sectionId, content));
-  renderSection('objects', content);
+  const initialSectionId = getRequestedSectionId();
+  renderNav(nav, (sectionId) => renderSection(sectionId, content), initialSectionId);
+  renderSection(initialSectionId, content);
 
   if (isImpersonating()) {
     notifyInfo(`User view mode is active for user ${getEffectiveUserId()}.`);

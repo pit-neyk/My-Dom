@@ -1,0 +1,15 @@
+.admin-home-sidebar {
+  top: 1rem;
+}
+
+.admin-home-label {
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-home-value {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
