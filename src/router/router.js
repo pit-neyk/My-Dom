@@ -28,15 +28,31 @@ const renderPlaceholderPage = (path) => {
   `;
 };
 
+const renderErrorPage = () => {
+  pageSlot().innerHTML = `
+    <section class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h1 class="h4 mb-2">Something went wrong</h1>
+        <p class="mb-0 text-secondary">The page failed to load. Please try refreshing the page.</p>
+      </div>
+    </section>
+  `;
+};
+
 export const renderCurrentRoute = () => {
   const currentPath = normalizePath(window.location.pathname);
   const pageRenderer = routeMap[currentPath];
 
-  if (pageRenderer) {
-    pageRenderer(pageSlot());
-  } else {
+  if (!pageRenderer) {
     renderPlaceholderPage(currentPath);
+    renderHeader(currentPath);
+    return;
   }
+
+  Promise.resolve(pageRenderer(pageSlot())).catch((error) => {
+    console.error(`Failed to render route \"${currentPath}\":`, error);
+    renderErrorPage();
+  });
 
   renderHeader(currentPath);
 };

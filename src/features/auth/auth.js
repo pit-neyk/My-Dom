@@ -13,12 +13,21 @@ export const initAuth = async (onSessionChange) => {
     return;
   }
 
-  const { data, error } = await supabase.auth.getSession();
+  try {
+    const { data, error } = await supabase.auth.getSession();
 
-  if (!error) {
-    currentSession = data.session;
-    onSessionChange?.(currentSession);
+    if (error) {
+      console.warn('Failed to get auth session:', error.message);
+      currentSession = null;
+    } else {
+      currentSession = data.session;
+    }
+  } catch (error) {
+    console.warn('Unexpected auth session error:', error);
+    currentSession = null;
   }
+
+  onSessionChange?.(currentSession);
 
   if (!authSubscription) {
     const { data: listenerData } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -39,13 +48,17 @@ export const registerWithEmail = async ({ email, password }) => {
     return { error: new Error(getConfigurationErrorMessage()) };
   }
 
-  return supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      emailRedirectTo: `${window.location.origin}/login`
-    }
-  });
+  try {
+    return await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/login`
+      }
+    });
+  } catch (error) {
+    return { error };
+  }
 };
 
 export const loginWithEmail = async ({ email, password }) => {
@@ -53,7 +66,11 @@ export const loginWithEmail = async ({ email, password }) => {
     return { error: new Error(getConfigurationErrorMessage()) };
   }
 
-  return supabase.auth.signInWithPassword({ email, password });
+  try {
+    return await supabase.auth.signInWithPassword({ email, password });
+  } catch (error) {
+    return { error };
+  }
 };
 
 export const logout = async () => {
@@ -61,5 +78,9 @@ export const logout = async () => {
     return { error: new Error(getConfigurationErrorMessage()) };
   }
 
-  return supabase.auth.signOut();
+  try {
+    return await supabase.auth.signOut();
+  } catch (error) {
+    return { error };
+  }
 };
