@@ -4,6 +4,7 @@ import './styles/global.css';
 import { renderHeader } from './components/header/header.js';
 import { renderFooter } from './components/footer/footer.js';
 import { initRouter, renderCurrentRoute } from './router/router.js';
+import { initAuth } from './features/auth/auth.js';
 
 const appRoot = document.getElementById('app');
 
@@ -18,4 +19,7 @@ appRoot.innerHTML = `
 renderHeader(window.location.pathname);
 renderFooter();
 initRouter();
+await initAuth(() => {
+  renderCurrentRoute();
+});
 renderCurrentRoute();

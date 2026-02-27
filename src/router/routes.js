@@ -1,8 +1,12 @@
 import { renderHomePage } from '../pages/home/home.js';
 import { renderDashboardPage } from '../pages/dashboard/dashboard.js';
+import { renderLoginPage } from '../pages/login/login.js';
+import { renderRegisterPage } from '../pages/register/register.js';
 
 export const routeMap = {
   '/': renderHomePage,
+  '/login': renderLoginPage,
+  '/register': renderRegisterPage,
   '/dashboard': renderDashboardPage
 };
 

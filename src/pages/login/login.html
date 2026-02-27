@@ -1,0 +1,36 @@
+<section class="auth-page card border-0 shadow-sm mx-auto">
+  <div class="card-body p-4 p-lg-5">
+    <p class="text-secondary mb-4">Sign in with your registered email and password.</p>
+
+    <form id="login-form" novalidate>
+      <div class="mb-3">
+        <label for="login-email" class="form-label">Email</label>
+        <input id="login-email" name="email" type="email" class="form-control" required autocomplete="email" />
+      </div>
+
+      <div class="mb-3">
+        <label for="login-password" class="form-label">Password</label>
+        <input
+          id="login-password"
+          name="password"
+          type="password"
+          class="form-control"
+          required
+          autocomplete="current-password"
+          minlength="6"
+        />
+      </div>
+
+      <div class="d-grid">
+        <button id="login-submit" type="submit" class="btn btn-primary">Login</button>
+      </div>
+    </form>
+
+    <div id="login-feedback" class="alert mt-3 d-none" role="status" aria-live="polite"></div>
+
+    <p class="mt-4 mb-0">
+      Need an account?
+      <a href="/register" data-link="router">Register here</a>
+    </p>
+  </div>
+</section>

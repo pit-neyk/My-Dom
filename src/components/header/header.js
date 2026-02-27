@@ -1,8 +1,19 @@
 import template from './header.html?raw';
 import './header.css';
 import { getRouteTitle, navigationLinks } from '../../router/routes.js';
+import { isAuthenticated, logout } from '../../features/auth/auth.js';
 
 const headerSlot = () => document.getElementById('header-slot');
+const guestRouteSet = new Set(['/', '/login', '/register']);
+const authRouteSet = new Set(['/dashboard']);
+
+const navigateToPath = (path) => {
+  if (window.location.pathname !== path) {
+    window.history.pushState({}, '', path);
+  }
+
+  window.dispatchEvent(new PopStateEvent('popstate'));
+};
 
 export const renderHeader = (currentPath = '/') => {
   const slot = headerSlot();
@@ -14,8 +25,22 @@ export const renderHeader = (currentPath = '/') => {
   slot.innerHTML = template;
 
   const linksContainer = slot.querySelector('#header-nav-links');
+  const authenticated = isAuthenticated();
 
-  linksContainer.innerHTML = navigationLinks
+  const brandLink = slot.querySelector('#brand-link');
+  if (brandLink && authenticated) {
+    brandLink.setAttribute('href', '/dashboard');
+  }
+
+  const visibleLinks = navigationLinks.filter(({ href }) => {
+    if (authenticated) {
+      return authRouteSet.has(href);
+    }
+
+    return guestRouteSet.has(href);
+  });
+
+  linksContainer.innerHTML = visibleLinks
     .map(({ href, label }) => {
       const isActive = href === currentPath;
 
@@ -28,6 +53,23 @@ export const renderHeader = (currentPath = '/') => {
       `;
     })
     .join('');
+
+  if (authenticated) {
+    linksContainer.insertAdjacentHTML(
+      'beforeend',
+      `
+        <li class="nav-item">
+          <button class="btn btn-link nav-link" type="button" id="header-logout-btn">Logout</button>
+        </li>
+      `
+    );
+
+    const logoutButton = linksContainer.querySelector('#header-logout-btn');
+    logoutButton?.addEventListener('click', async () => {
+      await logout();
+      navigateToPath('/');
+    });
+  }
 
   const pageTitle = getRouteTitle(currentPath);
   document.title = pageTitle ? `${pageTitle} | DOM` : 'DOM';

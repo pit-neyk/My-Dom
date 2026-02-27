@@ -1,3 +1,21 @@
 .dashboard-page {
   max-width: 960px;
 }
+
+.dashboard-summary-card .card-body {
+  padding: 1.5rem;
+}
+
+.summary-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+}
+
+.summary-amount {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+}
