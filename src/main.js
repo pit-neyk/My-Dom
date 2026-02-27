@@ -5,6 +5,7 @@ import { renderHeader } from './components/header/header.js';
 import { renderFooter } from './components/footer/footer.js';
 import { initRouter, renderCurrentRoute } from './router/router.js';
 import { initAuth } from './features/auth/auth.js';
+import { notifyError } from './components/toast/toast.js';
 
 const NON_APP_REJECTION_SNIPPET =
   'A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received';
@@ -17,6 +18,7 @@ window.addEventListener('unhandledrejection', (event) => {
     return;
   }
 
+  notifyError('Something went wrong. Please try again.');
   console.error('Unhandled promise rejection:', event.reason);
 });
 
@@ -39,6 +41,7 @@ try {
     renderCurrentRoute();
   });
 } catch (error) {
+  notifyError('Failed to initialize authentication. Please refresh and try again.');
   console.error('Failed to initialize auth session:', error);
 }
 

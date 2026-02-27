@@ -2,6 +2,7 @@ import './dashboard.css';
 import { isAuthenticated, getCurrentSession } from '../../features/auth/auth.js';
 import { navigateTo } from '../../router/router.js';
 import { supabase } from '../../lib/supabase.js';
+import { notifyError, notifyInfo } from '../../components/toast/toast.js';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April',
@@ -174,11 +175,6 @@ const attachPayHandlers = (container, userId, rerender) => {
     btn.addEventListener('click', async () => {
       const obligationId = btn.dataset.obligationId;
 
-      // Re-query the error slot at click time – guards against stale references
-      // caused by concurrent renders triggered from main.js.
-      const payErrorSlot = container.querySelector('#pay-error-slot');
-      if (payErrorSlot) payErrorSlot.innerHTML = '';
-
       btn.disabled = true;
       btn.textContent = '…';
 
@@ -189,28 +185,17 @@ const attachPayHandlers = (container, userId, rerender) => {
           console.error('Pay obligation error:', error);
           btn.disabled = false;
           btn.textContent = 'Pay';
-          if (payErrorSlot) {
-            payErrorSlot.innerHTML = `
-              <div class="alert alert-danger" role="alert">
-                Payment failed: ${error.message}
-              </div>
-            `;
-          }
+          notifyError(`Payment failed: ${error.message}`);
           return;
         }
 
+        notifyInfo('Payment marked as paid.');
         rerender();
       } catch (err) {
         console.error('Unexpected error while paying obligation:', err);
         btn.disabled = false;
         btn.textContent = 'Pay';
-        if (payErrorSlot) {
-          payErrorSlot.innerHTML = `
-            <div class="alert alert-danger" role="alert">
-              Unexpected error: ${err.message}
-            </div>
-          `;
-        }
+        notifyError(`Unexpected error: ${err.message}`);
       }
     });
   });
@@ -239,11 +224,10 @@ export const renderDashboardPage = async (container) => {
     await Promise.all([fetchUserObjects(userId), fetchBuildingFinancials()]);
 
   if (objectsError) {
+    notifyError(`Failed to load your obligations: ${objectsError.message}`);
     container.innerHTML = `
       <div class="dashboard-page">
-        <div class="alert alert-danger" role="alert">
-          Failed to load your obligations: ${objectsError.message}
-        </div>
+        <p class="text-secondary mb-0">Unable to load obligations right now.</p>
       </div>
     `;
     return;
@@ -260,7 +244,6 @@ export const renderDashboardPage = async (container) => {
     <div class="dashboard-page">
       ${buildSummaryHTML(safeFinancials, safeObjects)}
       <h2 class="h5 mb-3">Your Obligations</h2>
-      <div id="pay-error-slot"></div>
       <div id="obligations-container">
         ${buildObligationsSectionHTML(safeObjects)}
       </div>

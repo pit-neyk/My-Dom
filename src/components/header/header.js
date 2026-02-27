@@ -2,6 +2,7 @@ import template from './header.html?raw';
 import './header.css';
 import { getRouteTitle, navigationLinks } from '../../router/routes.js';
 import { isAuthenticated, logout } from '../../features/auth/auth.js';
+import { notifyError } from '../toast/toast.js';
 
 const headerSlot = () => document.getElementById('header-slot');
 const guestRouteSet = new Set(['/', '/login', '/register']);
@@ -66,7 +67,13 @@ export const renderHeader = (currentPath = '/') => {
 
     const logoutButton = linksContainer.querySelector('#header-logout-btn');
     logoutButton?.addEventListener('click', async () => {
-      await logout();
+      const { error } = await logout();
+
+      if (error) {
+        notifyError(error.message || 'Logout failed. Please try again.');
+        return;
+      }
+
       navigateToPath('/');
     });
   }

@@ -1,5 +1,6 @@
 import { routeMap } from './routes.js';
 import { renderHeader } from '../components/header/header.js';
+import { notifyError } from '../components/toast/toast.js';
 
 const pageSlot = () => document.getElementById('page-slot');
 
@@ -51,6 +52,7 @@ export const renderCurrentRoute = () => {
 
   Promise.resolve(pageRenderer(pageSlot())).catch((error) => {
     console.error(`Failed to render route \"${currentPath}\":`, error);
+    notifyError('Failed to load page content. Please refresh and try again.');
     renderErrorPage();
   });
 
