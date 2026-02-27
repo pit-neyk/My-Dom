@@ -34,6 +34,12 @@ const TARGET_USERS = [
   },
 ];
 
+const ADMIN_USER = {
+  email: 'admin@admin.com',
+  password: 'admin123',
+  profile: { full_name: 'System Admin', phone: '+35970019999', email: 'admin@admin.com' },
+};
+
 const AUX_OWNER_USERS = [
   { email: 'owner4.sample@mydom.local', password: 'pass123' },
   { email: 'owner5.sample@mydom.local', password: 'pass123' },
@@ -73,6 +79,9 @@ async function run() {
     ensuredTargetUsers.push({ ...target, id: user.id });
   }
 
+  const adminUser = await ensureUser(ADMIN_USER.email, ADMIN_USER.password);
+  const ensuredAdmin = { ...ADMIN_USER, id: adminUser.id };
+
   const auxOwners = [];
   for (const aux of AUX_OWNER_USERS) {
     const user = await ensureUser(aux.email, aux.password);
@@ -84,7 +93,10 @@ async function run() {
   const { error: userRolesError } = await supabase
     .from('user_roles')
     .upsert(
-      ensuredTargetUsers.map((user) => ({ user_id: user.id, role: 'user' })),
+      [
+        ...ensuredTargetUsers.map((user) => ({ user_id: user.id, role: 'user' })),
+        { user_id: ensuredAdmin.id, role: 'admin' }
+      ],
       { onConflict: 'user_id' }
     );
   if (userRolesError) throw userRolesError;
@@ -92,12 +104,20 @@ async function run() {
   const { error: profilesError } = await supabase
     .from('profiles')
     .upsert(
-      ensuredTargetUsers.map((user) => ({
-        user_id: user.id,
-        full_name: user.profile.full_name,
-        phone: user.profile.phone,
-        email: user.profile.email,
-      })),
+      [
+        ...ensuredTargetUsers.map((user) => ({
+          user_id: user.id,
+          full_name: user.profile.full_name,
+          phone: user.profile.phone,
+          email: user.profile.email,
+        })),
+        {
+          user_id: ensuredAdmin.id,
+          full_name: ensuredAdmin.profile.full_name,
+          phone: ensuredAdmin.profile.phone,
+          email: ensuredAdmin.profile.email,
+        }
+      ],
       { onConflict: 'user_id' }
     );
   if (profilesError) throw profilesError;
@@ -116,13 +136,13 @@ async function run() {
   ];
 
   const { error: objectsError } = await supabase
-    .from('independent_objects')
+    .from('properties')
     .upsert(independentObjects, { onConflict: 'number' });
   if (objectsError) throw objectsError;
 
   const objectNumbers = independentObjects.map((objectItem) => objectItem.number);
   const { data: objectRows, error: objectsFetchError } = await supabase
-    .from('independent_objects')
+    .from('properties')
     .select('id,number')
     .in('number', objectNumbers);
   if (objectsFetchError) throw objectsFetchError;
@@ -298,10 +318,11 @@ async function run() {
 
   console.log('Sample seed completed successfully.');
   console.log(`Users seeded/ensured: ${ensuredTargetUsers.length} target + ${auxOwners.length} auxiliary owners`);
+  console.log(`Admin ensured: ${ADMIN_USER.email} / ${ADMIN_USER.password}`);
   console.log(`Independent objects: ${independentObjects.length} (6 owned by target users)`);
   console.log(`Obligations (2025): ${obligationsSeed.length}, payments marked paid: 3`);
   console.log(`Events: ${eventsSeed.length}, discussions: ${discussionsSeed.length}, messages: ${messagesSeed.length}`);
-  console.log(`All seeded user IDs: ${allSeedUserIds.join(', ')}`);
+  console.log(`All seeded user IDs: ${[...allSeedUserIds, ensuredAdmin.id].join(', ')}`);
 }
 
 run().catch((error) => {

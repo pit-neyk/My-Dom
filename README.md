@@ -13,3 +13,10 @@ DOM is an application for Home Building Managers and people, living in a shared 
 
 - `/register` - email/password registration
 - `/login` - email/password sign in
+
+## Admin account and panel
+
+- Admin credentials (seeded): `admin@admin.com` / `admin123`
+- Admin route: `/admin`
+- Run seed to ensure admin exists: `npm run seed:sample`
+- Admin can manage properties, owners/contact details, obligations, events, documents, mass messages, impersonation mode, and own profile.

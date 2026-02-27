@@ -1,7 +1,7 @@
 import template from './header.html?raw';
 import './header.css';
 import { getRouteTitle, navigationLinks } from '../../router/routes.js';
-import { isAuthenticated, logout } from '../../features/auth/auth.js';
+import { isAuthenticated, isAdmin, isImpersonating, logout, stopImpersonation } from '../../features/auth/auth.js';
 import { notifyError } from '../toast/toast.js';
 
 const headerSlot = () => document.getElementById('header-slot');
@@ -27,14 +27,19 @@ export const renderHeader = (currentPath = '/') => {
 
   const linksContainer = slot.querySelector('#header-nav-links');
   const authenticated = isAuthenticated();
+  const admin = authenticated && isAdmin();
 
   const brandLink = slot.querySelector('#brand-link');
   if (brandLink && authenticated) {
-    brandLink.setAttribute('href', '/dashboard');
+    brandLink.setAttribute('href', admin ? '/admin' : '/dashboard');
   }
 
   const visibleLinks = navigationLinks.filter(({ href }) => {
     if (authenticated) {
+      if (admin) {
+        return false;
+      }
+
       return authRouteSet.has(href);
     }
 
@@ -56,6 +61,23 @@ export const renderHeader = (currentPath = '/') => {
     .join('');
 
   if (authenticated) {
+    if (isImpersonating()) {
+      linksContainer.insertAdjacentHTML(
+        'beforeend',
+        `
+          <li class="nav-item">
+            <button class="btn btn-link nav-link" type="button" id="header-return-admin-btn">Return to Admin</button>
+          </li>
+        `
+      );
+
+      const returnAdminButton = linksContainer.querySelector('#header-return-admin-btn');
+      returnAdminButton?.addEventListener('click', () => {
+        stopImpersonation();
+        navigateToPath('/admin');
+      });
+    }
+
     linksContainer.insertAdjacentHTML(
       'beforeend',
       `

@@ -1,12 +1,12 @@
 import template from './login.html?raw';
 import './login.css';
-import { loginWithEmail, isAuthenticated } from '../../features/auth/auth.js';
+import { loginWithEmail, isAdmin, isAuthenticated } from '../../features/auth/auth.js';
 import { navigateTo } from '../../router/router.js';
 import { notifyError } from '../../components/toast/toast.js';
 
 export const renderLoginPage = (container) => {
   if (isAuthenticated()) {
-    navigateTo('/dashboard');
+    navigateTo(isAdmin() ? '/admin' : '/dashboard');
     return;
   }
 
@@ -38,6 +38,6 @@ export const renderLoginPage = (container) => {
       return;
     }
 
-    navigateTo('/dashboard');
+    navigateTo(isAdmin() ? '/admin' : '/dashboard');
   });
 };

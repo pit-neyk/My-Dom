@@ -1,0 +1,23 @@
+.admin-sidebar {
+  top: 1rem;
+}
+
+.admin-section-card {
+  margin-bottom: 1rem;
+}
+
+.admin-table-wrap {
+  max-height: 420px;
+  overflow: auto;
+}
+
+.admin-muted {
+  font-size: 0.9rem;
+  color: var(--bs-secondary-color);
+}
+
+.admin-inline-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}

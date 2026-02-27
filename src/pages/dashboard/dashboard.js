@@ -1,5 +1,5 @@
 import './dashboard.css';
-import { isAuthenticated, getCurrentSession } from '../../features/auth/auth.js';
+import { isAuthenticated, isAdmin, isImpersonating, getEffectiveUserId } from '../../features/auth/auth.js';
 import { navigateTo } from '../../router/router.js';
 import { supabase } from '../../lib/supabase.js';
 import { notifyError, notifyInfo } from '../../components/toast/toast.js';
@@ -22,7 +22,7 @@ const formatCurrency = (value) =>
 
 const fetchUserObjects = async (userId) =>
   supabase
-    .from('independent_objects')
+    .from('properties')
     .select(`
       id, number, floor,
       payment_obligations (
@@ -162,7 +162,7 @@ const buildObjectObligationsHTML = (obj) => {
 
 const buildObligationsSectionHTML = (objects) => {
   if (!objects.length) {
-    return `<p class="text-secondary">No independent objects are assigned to your account.</p>`;
+    return `<p class="text-secondary">No properties are assigned to your account.</p>`;
   }
 
   return objects.map(buildObjectObligationsHTML).join('');
@@ -209,6 +209,11 @@ export const renderDashboardPage = async (container) => {
     return;
   }
 
+  if (isAdmin() && !isImpersonating()) {
+    navigateTo('/admin');
+    return;
+  }
+
   container.innerHTML = `
     <div class="dashboard-page">
       <div class="d-flex align-items-center gap-2 text-secondary py-5 justify-content-center">
@@ -218,7 +223,12 @@ export const renderDashboardPage = async (container) => {
     </div>
   `;
 
-  const userId = getCurrentSession().user.id;
+  const userId = getEffectiveUserId();
+
+  if (!userId) {
+    navigateTo('/login');
+    return;
+  }
 
   const [{ data: objects, error: objectsError }, { data: financials, error: financialsError }] =
     await Promise.all([fetchUserObjects(userId), fetchBuildingFinancials()]);
