@@ -9,13 +9,14 @@ import {
 } from '../../features/auth/auth.js';
 import { notifyError, notifyInfo } from '../../components/toast/toast.js';
 import { loadInitialData, getRequestedSectionId, renderNav } from './adminState.js';
-import { renderObjectsSection } from './sections/objects.js';
-import { renderObligationsSection } from './sections/obligations.js';
-import { renderEventsSection } from './sections/events.js';
-import { renderDocumentsSection } from './sections/documents.js';
-import { renderMassMessagesSection } from './sections/messages.js';
-import { renderImpersonationSection } from './sections/impersonation.js';
-import { renderProfileSection } from './sections/profile.js';
+import { renderObjectsSection } from './sections/objects/objects.js';
+import { renderRatesSection } from './sections/rates/rates.js';
+import { renderPaymentObligationsSection } from './sections/payment-obligations/payment-obligations.js';
+import { renderEventsSection } from './sections/events/events.js';
+import { renderDocumentsSection } from './sections/documents/documents.js';
+import { renderMassMessagesSection } from './sections/messages/messages.js';
+import { startViewAsUserMode } from './sections/impersonation/impersonation.js';
+import { renderProfileSection } from './sections/profile/profile.js';
 
 const ADMIN_LOAD_TIMEOUT_MS = 15000;
 
@@ -54,8 +55,11 @@ const renderSection = async (sectionId, content) => {
     case 'objects':
       renderObjectsSection(content);
       break;
-    case 'obligations':
-      await renderObligationsSection(content);
+    case 'rates':
+      await renderRatesSection(content);
+      break;
+    case 'payment-obligations':
+      await renderPaymentObligationsSection(content);
       break;
     case 'events':
       renderEventsSection(content);
@@ -67,7 +71,7 @@ const renderSection = async (sectionId, content) => {
       renderMassMessagesSection(content);
       break;
     case 'impersonation':
-      renderImpersonationSection(content);
+      await startViewAsUserMode();
       break;
     case 'profile':
       renderProfileSection(content);

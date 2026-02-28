@@ -1,7 +1,7 @@
-import { supabase } from '../../../lib/supabase.js';
-import { notifyError, notifyInfo } from '../../../components/toast/toast.js';
-import { enableTableColumnFilters } from '../../../components/table-filters/table-filters.js';
-import { state, getUserDisplay } from '../adminState.js';
+import { supabase } from '../../../../lib/supabase.js';
+import { notifyError, notifyInfo } from '../../../../components/toast/toast.js';
+import { enableTableColumnFilters } from '../../../../components/table-filters/table-filters.js';
+import { state, getUserDisplay } from '../../adminState.js';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -12,9 +12,9 @@ import contactCardTemplate from './objects-contact-card.html?raw';
 import contactsCellTemplate from './objects-contacts-cell.html?raw';
 import contactsHeaderTemplate from './objects-contacts-header.html?raw';
 import emptySecondaryTextTemplate from './empty-secondary-text.html?raw';
-import editIconSvg from '../../../assets/icons/edit.svg?raw';
-import deleteIconSvg from '../../../assets/icons/delete.svg?raw';
-import { fillTemplate } from '../../../lib/template.js';
+import editIconSvg from '../../../../assets/icons/edit.svg?raw';
+import deleteIconSvg from '../../../../assets/icons/delete.svg?raw';
+import { fillTemplate } from '../../../../lib/template.js';
 import './objects.css';
 
 const CONTACT_TYPE_OPTIONS = [

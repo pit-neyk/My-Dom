@@ -36,7 +36,8 @@ const fetchProperties = async () =>
 const fetchObligations = async () =>
   supabase
     .from('payment_obligations')
-    .select('id,year,month,rate,independent_object_id,properties(number,floor),payments(id,status,date)')
+    .select('id,year,month,rate,independent_object_id,properties(number,floor),payments(id,status,date),payment_rates!inner(is_active)')
+    .eq('payment_rates.is_active', true)
     .order('year', { ascending: false })
     .order('month', { ascending: false });
 

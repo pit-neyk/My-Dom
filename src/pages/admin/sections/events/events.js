@@ -1,13 +1,13 @@
-import { supabase } from '../../../lib/supabase.js';
-import { notifyError, notifyInfo } from '../../../components/toast/toast.js';
-import { enableTableColumnFilters } from '../../../components/table-filters/table-filters.js';
-import { getCurrentSession } from '../../../features/auth/auth.js';
-import { state, loadInitialData, formatDateTime } from '../adminState.js';
+import { supabase } from '../../../../lib/supabase.js';
+import { notifyError, notifyInfo } from '../../../../components/toast/toast.js';
+import { enableTableColumnFilters } from '../../../../components/table-filters/table-filters.js';
+import { getCurrentSession } from '../../../../features/auth/auth.js';
+import { state, loadInitialData, formatDateTime } from '../../adminState.js';
 import template from './events.html?raw';
 import rowTemplate from './events-row.html?raw';
-import editIconSvg from '../../../assets/icons/edit.svg?raw';
-import deleteIconSvg from '../../../assets/icons/delete.svg?raw';
-import { fillTemplate } from '../../../lib/template.js';
+import editIconSvg from '../../../../assets/icons/edit.svg?raw';
+import deleteIconSvg from '../../../../assets/icons/delete.svg?raw';
+import { fillTemplate } from '../../../../lib/template.js';
 import './events.css';
 
 export const renderEventsSection = (content) => {

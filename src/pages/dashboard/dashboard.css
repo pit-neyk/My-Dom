@@ -19,3 +19,8 @@
   font-weight: 700;
   line-height: 1;
 }
+
+.dashboard-messages-list {
+  display: grid;
+  gap: 0.75rem;
+}

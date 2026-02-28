@@ -1,7 +1,7 @@
-import { supabase } from '../../../lib/supabase.js';
-import { notifyError, notifyInfo } from '../../../components/toast/toast.js';
-import { getCurrentSession } from '../../../features/auth/auth.js';
-import { state, loadInitialData } from '../adminState.js';
+import { supabase } from '../../../../lib/supabase.js';
+import { notifyError, notifyInfo } from '../../../../components/toast/toast.js';
+import { getCurrentSession } from '../../../../features/auth/auth.js';
+import { state, loadInitialData } from '../../adminState.js';
 import template from './profile.html?raw';
 import './profile.css';
 

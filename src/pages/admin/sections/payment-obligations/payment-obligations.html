@@ -1,0 +1,29 @@
+<div class="card border-0 shadow-sm admin-section-card">
+  <div class="card-body">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+      <h3 class="h5 mb-0">Payment Obligations: <span id="payment-obligations-period"></span></h3>
+      <div class="admin-inline-actions">
+        <a class="btn btn-sm btn-outline-secondary" href="/admin/panel?section=rates" data-link="router">Back to Rates</a>
+      </div>
+    </div>
+
+    <div class="admin-table-wrap table-responsive payment-obligations-editor-wrap">
+      <form id="payment-obligations-form">
+        <input type="hidden" name="rate_id" />
+        <table class="table table-sm align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Property</th>
+              <th>Obligation (EUR)</th>
+            </tr>
+          </thead>
+          <tbody id="payment-obligations-rows">{{rows}}</tbody>
+        </table>
+
+        <div class="admin-inline-actions mt-3">
+          <button class="btn btn-primary" type="submit">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

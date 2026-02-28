@@ -15,7 +15,8 @@ export const createNonPersistentClient = () =>
 
 export const ADMIN_SECTIONS = [
   { id: 'objects', label: 'Properties' },
-  { id: 'obligations', label: 'Payment Obligations' },
+  { id: 'rates', label: 'Rates' },
+  { id: 'payment-obligations', label: 'Payment Obligations', showInNav: false },
   { id: 'events', label: 'Events' },
   { id: 'documents', label: 'Documents' },
   { id: 'messages', label: 'Messages' },
@@ -36,6 +37,7 @@ export const state = {
   profiles: [],
   propertyContacts: [],
   propertyContactsEnabled: true,
+  rates: [],
   obligations: [],
   events: [],
   documents: [],
@@ -104,25 +106,41 @@ export const loadInitialData = async () => {
 };
 
 export const loadObligationsData = async () => {
-  const obligationsRes = await supabase
-    .from('payment_obligations')
-    .select('id,year,month,rate,independent_object_id,properties(number),payments(id,status,date)')
-    .order('year', { ascending: false })
-    .order('month', { ascending: false });
+  const [obligationsRes, ratesRes] = await Promise.all([
+    supabase
+      .from('payment_obligations')
+      .select('id,year,month,rate,payment_rate_id,independent_object_id,properties(number),payments(id,status,date),payment_rates(id,year,month,is_active)')
+      .order('year', { ascending: false })
+      .order('month', { ascending: false }),
+    supabase
+      .from('payment_rates')
+      .select('id,year,month,is_active')
+      .order('year', { ascending: false })
+      .order('month', { ascending: false })
+  ]);
 
   if (obligationsRes.error) {
     throw obligationsRes.error;
   }
 
+  if (ratesRes.error) {
+    throw ratesRes.error;
+  }
+
   state.obligations = obligationsRes.data ?? [];
+  state.rates = ratesRes.data ?? [];
 };
 
 export const getRequestedSectionId = () => {
   const sectionId = new URLSearchParams(window.location.search).get('section');
-  return ADMIN_SECTIONS.some((section) => section.id === sectionId) ? sectionId : 'objects';
+  if (sectionId === 'obligations') {
+    return 'rates';
+  }
+
+  return ADMIN_SECTIONS.some((section) => section.id === sectionId) ? sectionId : 'rates';
 };
 
-export const renderNav = (container, onSelect, activeSectionId = 'objects') => {
+export const renderNav = (container, onSelect, activeSectionId = 'rates') => {
   container.textContent = '';
 
   const homeLink = document.createElement('a');
@@ -132,7 +150,7 @@ export const renderNav = (container, onSelect, activeSectionId = 'objects') => {
   homeLink.textContent = 'Admin Home';
   container.appendChild(homeLink);
 
-  ADMIN_SECTIONS.forEach((section) => {
+  ADMIN_SECTIONS.filter((section) => section.showInNav !== false).forEach((section) => {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = `btn btn-outline-secondary text-start admin-nav-btn${section.id === activeSectionId ? ' active' : ''}`;

@@ -13,6 +13,7 @@ import { navigateTo } from '../../router/router.js';
 import { supabase } from '../../lib/supabase.js';
 import { notifyError, notifyInfo } from '../../components/toast/toast.js';
 import { fillTemplate } from '../../lib/template.js';
+import messageItemTemplate from '../admin-home/message-item.html?raw';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April',
@@ -37,7 +38,8 @@ const fetchUserObjects = async (userId) =>
       id, number, floor,
       payment_obligations (
         id, year, month, rate,
-        payments ( id, status, date )
+        payments ( id, status, date ),
+        payment_rates ( is_active )
       )
     `)
     .eq('owner_user_id', userId)
@@ -45,6 +47,13 @@ const fetchUserObjects = async (userId) =>
 
 const fetchBuildingFinancials = async () =>
   supabase.rpc('get_building_financials');
+
+const fetchMessages = async () =>
+  supabase
+    .from('mass_messages')
+    .select('id,title,content_html,created_at')
+    .order('created_at', { ascending: false })
+    .limit(10);
 
 const payObligation = async ({ obligationId, userId }) => {
   const today = new Date().toISOString().split('T')[0];
@@ -74,7 +83,7 @@ const buildSummaryHTML = (financials, objects) => {
   } else {
     // Fallback: compute from the user's own visible data
     for (const obj of objects) {
-      for (const ob of obj.payment_obligations ?? []) {
+      for (const ob of (obj.payment_obligations ?? []).filter((item) => item.payment_rates?.is_active === true)) {
         const payment = ob.payments?.[0];
         if (payment?.status === 'paid') {
           collected += Number(ob.rate);
@@ -92,7 +101,9 @@ const buildSummaryHTML = (financials, objects) => {
 };
 
 const buildObjectObligationsHTML = (obj) => {
-  const obligations = [...(obj.payment_obligations ?? [])].sort(
+  const obligations = [...(obj.payment_obligations ?? [])]
+    .filter((obligation) => obligation.payment_rates?.is_active === true)
+    .sort(
     (a, b) => b.year !== a.year ? b.year - a.year : b.month - a.month
   );
 
@@ -132,6 +143,62 @@ const buildObjectObligationsHTML = (obj) => {
 
 const buildObligationsSectionHTML = (objects) => {
   return objects.map(buildObjectObligationsHTML).join('');
+};
+
+const buildPropertiesOverviewHTML = (objects) => {
+  const totalProperties = objects.length;
+  const withObligations = objects.filter((obj) =>
+    (obj.payment_obligations ?? [])
+      .filter((obligation) => obligation.payment_rates?.is_active === true)
+      .some((obligation) => obligation.payments?.[0]?.status !== 'paid')
+  ).length;
+
+  const withoutObligations = totalProperties - withObligations;
+
+  return `
+    <div class="row g-3 mb-4">
+      <div class="col-12 col-md-4">
+        <div class="card border-0 shadow-sm h-100 dashboard-summary-card">
+          <div class="card-body">
+            <p class="summary-label text-secondary">Properties</p>
+            <p class="summary-amount text-secondary mb-0">${totalProperties}</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-md-4">
+        <div class="card border-0 shadow-sm h-100 dashboard-summary-card">
+          <div class="card-body">
+            <p class="summary-label text-danger">With Obligations</p>
+            <p class="summary-amount text-danger mb-0">${withObligations}</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-md-4">
+        <div class="card border-0 shadow-sm h-100 dashboard-summary-card">
+          <div class="card-body">
+            <p class="summary-label text-success">Without Obligations</p>
+            <p class="summary-amount text-success mb-0">${withoutObligations}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+const buildMessagesHTML = (messages) => {
+  if (!messages.length) {
+    return '<p class="text-secondary mb-0">No messages.</p>';
+  }
+
+  return messages
+    .map((message) =>
+      fillTemplate(messageItemTemplate, {
+        title: message.title,
+        createdAt: new Date(message.created_at).toLocaleString('bg-BG'),
+        contentHtml: message.content_html
+      })
+    )
+    .join('');
 };
 
 const renderDashboardLoadingState = (slot) => {
@@ -213,8 +280,11 @@ export const renderDashboardPage = async (container) => {
     return;
   }
 
-  const [{ data: objects, error: objectsError }, { data: financials, error: financialsError }] =
-    await Promise.all([fetchUserObjects(userId), fetchBuildingFinancials()]);
+  const [
+    { data: objects, error: objectsError },
+    { data: financials, error: financialsError },
+    { data: messages, error: messagesError }
+  ] = await Promise.all([fetchUserObjects(userId), fetchBuildingFinancials(), fetchMessages()]);
 
   if (objectsError) {
     notifyError(`Failed to load your obligations: ${objectsError.message}`);
@@ -226,10 +296,26 @@ export const renderDashboardPage = async (container) => {
     console.warn('Building financials unavailable:', financialsError.message);
   }
 
+  if (messagesError) {
+    console.warn('Messages unavailable:', messagesError.message);
+  }
+
   const safeObjects = objects ?? [];
   const safeFinancials = financialsError ? null : financials;
+  const safeMessages = messages ?? [];
 
   stateSlot.innerHTML = buildSummaryHTML(safeFinancials, safeObjects);
+  stateSlot.insertAdjacentHTML('beforeend', buildPropertiesOverviewHTML(safeObjects));
+
+  const messagesSection = document.createElement('div');
+  messagesSection.className = 'card border-0 shadow-sm mb-4';
+  messagesSection.innerHTML = `
+    <div class="card-body">
+      <h2 class="h5 mb-3">Messages</h2>
+      <div class="dashboard-messages-list">${buildMessagesHTML(safeMessages)}</div>
+    </div>
+  `;
+  stateSlot.appendChild(messagesSection);
 
   const obligationsTitle = document.createElement('h2');
   obligationsTitle.className = 'h5 mb-3';

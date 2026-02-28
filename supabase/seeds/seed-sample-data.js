@@ -165,6 +165,32 @@ async function run() {
     rate: item.rate,
   }));
 
+  const ratePeriods = Array.from(
+    new Map(obligationsSeed.map((item) => [`${item.year}-${item.month}`, { year: item.year, month: item.month }])).values()
+  );
+
+  const { error: ratesError } = await supabase
+    .from('payment_rates')
+    .upsert(ratePeriods, { onConflict: 'year,month' });
+  if (ratesError) throw ratesError;
+
+  const { data: rateRows, error: ratesFetchError } = await supabase
+    .from('payment_rates')
+    .select('id,year,month')
+    .or(ratePeriods.map((period) => `and(year.eq.${period.year},month.eq.${period.month})`).join(','));
+  if (ratesFetchError) throw ratesFetchError;
+
+  const rateIdByPeriod = new Map(rateRows.map((row) => [`${row.year}-${row.month}`, row.id]));
+
+  obligationsSeed.forEach((item) => {
+    item.payment_rate_id = rateIdByPeriod.get(`${item.year}-${item.month}`);
+  });
+
+  const missingRate = obligationsSeed.find((obligation) => !obligation.payment_rate_id);
+  if (missingRate) {
+    throw new Error('Could not resolve one or more payment rate IDs for obligations seeding.');
+  }
+
   const missingObject = obligationsSeed.find((obligation) => !obligation.independent_object_id);
   if (missingObject) {
     throw new Error('Could not resolve one or more independent object IDs for obligations seeding.');
