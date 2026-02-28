@@ -65,9 +65,24 @@ export const renderObligationsSection = async (content) => {
             : '<span class="badge bg-danger-subtle text-danger-emphasis">Pending</span>'}
         </td>
         <td class="admin-inline-actions">
-          ${paid ? '' : `<button type="button" class="btn btn-sm btn-success" data-pay-obligation="${ob.id}">Pay</button>`}
-          <button type="button" class="btn btn-sm btn-outline-primary" data-edit-obligation="${ob.id}">Edit</button>
-          <button type="button" class="btn btn-sm btn-outline-danger" data-delete-obligation="${ob.id}">Delete</button>
+          ${paid
+            ? ''
+            : `<button type="button" class="btn btn-sm btn-success" data-pay-obligation="${ob.id}" aria-label="Pay obligation ${ob.id}" title="Pay">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false">
+                  <path d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0m3.354 5.646a.5.5 0 0 1 0 .708L7.707 10a.5.5 0 0 1-.708 0L4.646 7.646a.5.5 0 1 1 .708-.708l2 2 3.293-3.292a.5.5 0 0 1 .707 0"/>
+                </svg>
+              </button>`}
+          <button type="button" class="btn btn-sm btn-outline-primary" data-edit-obligation="${ob.id}" aria-label="Edit obligation ${ob.id}" title="Edit">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false">
+              <path d="M12.854.146a.5.5 0 0 1 .707 0l2.586 2.586a.5.5 0 0 1 0 .707L6.207 13.379a.5.5 0 0 1-.168.11l-4 1.5a.5.5 0 0 1-.643-.643l1.5-4a.5.5 0 0 1 .11-.168zM11.5 1.207 2.561 10.146l-.96 2.56 2.56-.96L13.1 2.807z"/>
+            </svg>
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-danger" data-delete-obligation="${ob.id}" aria-label="Delete obligation ${ob.id}" title="Delete">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false">
+              <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0A.5.5 0 0 1 8.5 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>
+              <path d="M14 3a1 1 0 0 1-1 1h-.538l-.853 10.66A2 2 0 0 1 9.615 16h-3.23a2 2 0 0 1-1.994-1.34L3.538 4H3a1 1 0 1 1 0-2h3.086a1 1 0 0 1 .707-.293h2.414a1 1 0 0 1 .707.293H13a1 1 0 0 1 1 1m-9.46 1 .84 10.5a1 1 0 0 0 .997.5h3.246a1 1 0 0 0 .997-.5l.84-10.5z"/>
+            </svg>
+          </button>
         </td>
       </tr>
     `;

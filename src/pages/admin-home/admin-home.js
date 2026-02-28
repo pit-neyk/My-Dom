@@ -5,6 +5,8 @@ import { navigateTo } from '../../router/router.js';
 import { supabase } from '../../lib/supabase.js';
 import { notifyError } from '../../components/toast/toast.js';
 
+let latestAdminHomeRenderId = 0;
+
 const formatCurrency = (value) =>
   new Intl.NumberFormat('bg-BG', {
     style: 'currency',
@@ -51,7 +53,31 @@ const toPaymentsArray = (payments) => {
 const isObligationPaid = (obligation) =>
   toPaymentsArray(obligation.payments).some((payment) => payment?.status === 'paid');
 
+const loadAdminHomeData = async () => {
+  const [
+    propertiesRes,
+    obligationsRes,
+    financialsRes,
+    messagesRes
+  ] = await Promise.all([fetchProperties(), fetchObligations(), fetchBuildingFinancials(), fetchMessages()]);
+
+  return {
+    propertiesRes,
+    obligationsRes,
+    financialsRes,
+    messagesRes
+  };
+};
+
+const shouldRetryAfterEmptyData = (properties, obligations) =>
+  Array.isArray(properties) &&
+  Array.isArray(obligations) &&
+  properties.length === 0 &&
+  obligations.length === 0;
+
 export const renderAdminHomePage = async (container) => {
+  const renderId = ++latestAdminHomeRenderId;
+
   if (!isAuthenticated()) {
     navigateTo('/login');
     return;
@@ -64,12 +90,31 @@ export const renderAdminHomePage = async (container) => {
 
   container.innerHTML = template;
 
-  const [
-    { data: properties, error: propertiesError },
-    { data: obligations, error: obligationsError },
-    { data: financials, error: financialsError },
-    { data: messages, error: messagesError }
-  ] = await Promise.all([fetchProperties(), fetchObligations(), fetchBuildingFinancials(), fetchMessages()]);
+  let {
+    propertiesRes,
+    obligationsRes,
+    financialsRes,
+    messagesRes
+  } = await loadAdminHomeData();
+
+  if (shouldRetryAfterEmptyData(propertiesRes.data, obligationsRes.data)) {
+    await supabase.auth.getSession();
+    ({
+      propertiesRes,
+      obligationsRes,
+      financialsRes,
+      messagesRes
+    } = await loadAdminHomeData());
+  }
+
+  if (renderId !== latestAdminHomeRenderId || window.location.pathname !== '/admin') {
+    return;
+  }
+
+  const { data: properties, error: propertiesError } = propertiesRes;
+  const { data: obligations, error: obligationsError } = obligationsRes;
+  const { data: financials, error: financialsError } = financialsRes;
+  const { data: messages, error: messagesError } = messagesRes;
 
   if (propertiesError) {
     notifyError(`Failed to load properties overview: ${propertiesError.message}`);
