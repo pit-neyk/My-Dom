@@ -51,11 +51,6 @@ export const getPrevMonthYear = (year, month) => {
 
 export const getUserDisplay = (profile) => profile?.full_name || profile?.email || profile?.user_id;
 
-export const getOwnerOptions = () =>
-  [`<option value="">No owner assigned</option>`, ...state.profiles
-    .map((profile) => `<option value="${profile.user_id}">${getUserDisplay(profile)}</option>`)
-  ].join('');
-
 const isMissingPropertyContactsTableError = (error) =>
   error?.code === 'PGRST205' || error?.code === '42P01' || error?.status === 404;
 
@@ -128,24 +123,23 @@ export const getRequestedSectionId = () => {
 };
 
 export const renderNav = (container, onSelect, activeSectionId = 'objects') => {
-  const sectionButtons = ADMIN_SECTIONS
-    .map(
-      (section) => `
-        <button
-          type="button"
-          class="btn btn-outline-secondary text-start admin-nav-btn ${section.id === activeSectionId ? 'active' : ''}"
-          data-section-id="${section.id}"
-        >
-          ${section.label}
-        </button>
-      `
-    )
-    .join('');
+  container.textContent = '';
 
-  container.innerHTML = `
-    <a class="btn btn-outline-secondary text-start admin-nav-btn" href="/admin" data-link="router">Admin Home</a>
-    ${sectionButtons}
-  `;
+  const homeLink = document.createElement('a');
+  homeLink.className = 'btn btn-outline-secondary text-start admin-nav-btn';
+  homeLink.href = '/admin';
+  homeLink.setAttribute('data-link', 'router');
+  homeLink.textContent = 'Admin Home';
+  container.appendChild(homeLink);
+
+  ADMIN_SECTIONS.forEach((section) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `btn btn-outline-secondary text-start admin-nav-btn${section.id === activeSectionId ? ' active' : ''}`;
+    button.dataset.sectionId = section.id;
+    button.textContent = section.label;
+    container.appendChild(button);
+  });
 
   container.querySelectorAll('[data-section-id]').forEach((button) => {
     button.addEventListener('click', () => {

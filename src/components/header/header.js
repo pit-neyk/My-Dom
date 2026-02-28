@@ -46,30 +46,32 @@ export const renderHeader = (currentPath = '/') => {
     return guestRouteSet.has(href);
   });
 
-  linksContainer.innerHTML = visibleLinks
-    .map(({ href, label }) => {
-      const isActive = href === currentPath;
+  linksContainer.textContent = '';
 
-      return `
-        <li class="nav-item">
-          <a class="nav-link ${isActive ? 'active' : ''}" href="${href}" data-link="router">
-            ${label}
-          </a>
-        </li>
-      `;
-    })
-    .join('');
+  visibleLinks.forEach(({ href, label }) => {
+    const isActive = href === currentPath;
+    const item = document.createElement('li');
+    item.className = 'nav-item';
+    const link = document.createElement('a');
+    link.className = `nav-link${isActive ? ' active' : ''}`;
+    link.href = href;
+    link.setAttribute('data-link', 'router');
+    link.textContent = label;
+    item.appendChild(link);
+    linksContainer.appendChild(item);
+  });
 
   if (authenticated) {
     if (isImpersonating()) {
-      linksContainer.insertAdjacentHTML(
-        'beforeend',
-        `
-          <li class="nav-item">
-            <button class="btn btn-link nav-link" type="button" id="header-return-admin-btn">Return to Admin</button>
-          </li>
-        `
-      );
+      const item = document.createElement('li');
+      item.className = 'nav-item';
+      const button = document.createElement('button');
+      button.className = 'btn btn-link nav-link';
+      button.type = 'button';
+      button.id = 'header-return-admin-btn';
+      button.textContent = 'Return to Admin';
+      item.appendChild(button);
+      linksContainer.appendChild(item);
 
       const returnAdminButton = linksContainer.querySelector('#header-return-admin-btn');
       returnAdminButton?.addEventListener('click', () => {
@@ -78,14 +80,15 @@ export const renderHeader = (currentPath = '/') => {
       });
     }
 
-    linksContainer.insertAdjacentHTML(
-      'beforeend',
-      `
-        <li class="nav-item">
-          <button class="btn btn-link nav-link" type="button" id="header-logout-btn">Logout</button>
-        </li>
-      `
-    );
+    const logoutItem = document.createElement('li');
+    logoutItem.className = 'nav-item';
+    const logoutButtonNode = document.createElement('button');
+    logoutButtonNode.className = 'btn btn-link nav-link';
+    logoutButtonNode.type = 'button';
+    logoutButtonNode.id = 'header-logout-btn';
+    logoutButtonNode.textContent = 'Logout';
+    logoutItem.appendChild(logoutButtonNode);
+    linksContainer.appendChild(logoutItem);
 
     const logoutButton = linksContainer.querySelector('#header-logout-btn');
     logoutButton?.addEventListener('click', async () => {

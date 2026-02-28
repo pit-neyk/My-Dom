@@ -1,8 +1,17 @@
 import './payments.css';
+import template from './payments.html?raw';
+import rowNoDuesTemplate from './row-no-dues.html?raw';
+import rowWithDuesTemplate from './row-with-dues.html?raw';
+import emptyRowTemplate from './empty-row.html?raw';
+import detailsPaidTemplate from './details-paid.html?raw';
+import detailsPaidRowTemplate from './details-paid-row.html?raw';
+import detailsPendingTemplate from './details-pending.html?raw';
+import detailsPendingRowTemplate from './details-pending-row.html?raw';
 import { getCurrentSession, isAdmin, isAuthenticated } from '../../features/auth/auth.js';
 import { navigateTo } from '../../router/router.js';
 import { supabase } from '../../lib/supabase.js';
 import { notifyError, notifyInfo } from '../../components/toast/toast.js';
+import { fillTemplate } from '../../lib/template.js';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April',
@@ -57,60 +66,20 @@ const getDuesMode = () => {
 const renderBase = (container, mode) => {
   const title = mode === 'with_no_dues' ? 'Properties Without Obligations' : 'Properties With Obligations';
 
-  container.innerHTML = `
-    <section class="payments-page">
-      <div class="row g-4">
-        <aside class="col-12 col-lg-3">
-          <div class="card border-0 shadow-sm sticky-top payments-sidebar">
-            <div class="card-body">
-              <div class="nav flex-column nav-pills gap-2">
-                <a class="btn btn-outline-secondary text-start" href="/admin" data-link="router">Admin Home</a>
-                <a class="btn btn-outline-secondary text-start" href="/admin/panel?section=objects" data-link="router">Properties</a>
-                <a class="btn btn-outline-secondary text-start" href="/admin/panel?section=obligations" data-link="router">Payment Obligations</a>
-                <a class="btn btn-outline-secondary text-start" href="/admin/panel?section=events" data-link="router">Events</a>
-                <a class="btn btn-outline-secondary text-start" href="/admin/panel?section=documents" data-link="router">Documents</a>
-                <a class="btn btn-outline-secondary text-start" href="/admin/panel?section=messages" data-link="router">Messages</a>
-                <a class="btn btn-outline-secondary text-start" href="/admin/panel?section=impersonation" data-link="router">View As User</a>
-                <a class="btn btn-outline-secondary text-start" href="/admin/panel?section=profile" data-link="router">My Profile</a>
-              </div>
-            </div>
-          </div>
-        </aside>
+  container.innerHTML = template;
 
-        <div class="col-12 col-lg-9">
-          <div class="card border-0 shadow-sm mb-3">
-            <div class="card-body">
-              <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-                <h2 class="h5 mb-0">${title}</h2>
-                <div class="d-flex gap-2">
-                  <a class="btn btn-sm ${mode === 'with_no_dues' ? 'btn-primary' : 'btn-outline-secondary'}" href="/payments?dues=with_no_dues" data-link="router">Without Obligations</a>
-                  <a class="btn btn-sm ${mode === 'with_dues' ? 'btn-primary' : 'btn-outline-secondary'}" href="/payments?dues=with_dues" data-link="router">With Obligations</a>
-                </div>
-              </div>
-            </div>
-          </div>
+  const titleNode = container.querySelector('#payments-page-title');
+  const withoutObligationsLink = container.querySelector('#payments-without-obligations-link');
+  const withObligationsLink = container.querySelector('#payments-with-obligations-link');
 
-          <div class="card border-0 shadow-sm">
-            <div class="card-body">
-              <div class="table-responsive">
-                <table class="table table-sm align-middle mb-0">
-                  <thead id="payments-table-head"></thead>
-                  <tbody id="payments-table-body">
-                    <tr><td colspan="7" class="text-secondary">Loading...</td></tr>
-                  </tbody>
-                </table>
-              </div>
+  if (titleNode) {
+    titleNode.textContent = title;
+  }
 
-              <div id="payments-detail-panel" class="payment-details-panel d-none mt-3">
-                <h3 class="h6 mb-3" id="payments-detail-title">Details</h3>
-                <div id="payments-detail-content"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  `;
+  withoutObligationsLink?.classList.toggle('btn-primary', mode === 'with_no_dues');
+  withoutObligationsLink?.classList.toggle('btn-outline-secondary', mode !== 'with_no_dues');
+  withObligationsLink?.classList.toggle('btn-primary', mode === 'with_dues');
+  withObligationsLink?.classList.toggle('btn-outline-secondary', mode !== 'with_dues');
 };
 
 export const renderPaymentsPage = async (container) => {
@@ -200,6 +169,20 @@ export const renderPaymentsPage = async (container) => {
   const detailTitle = container.querySelector('#payments-detail-title');
   const detailContent = container.querySelector('#payments-detail-content');
 
+  const setTableHead = (columns) => {
+    tableHead.textContent = '';
+    const row = document.createElement('tr');
+    columns.forEach((column) => {
+      const th = document.createElement('th');
+      th.textContent = column.label;
+      if (column.className) {
+        th.className = column.className;
+      }
+      row.appendChild(th);
+    });
+    tableHead.appendChild(row);
+  };
+
   const showDetails = (title, content) => {
     detailTitle.textContent = title;
     detailContent.innerHTML = content;
@@ -207,35 +190,29 @@ export const renderPaymentsPage = async (container) => {
   };
 
   if (mode === 'with_no_dues') {
-    tableHead.innerHTML = `
-      <tr>
-        <th></th>
-        <th>Property</th>
-        <th>Floor</th>
-        <th class="text-end">Total Due</th>
-        <th class="text-end">Paid</th>
-        <th class="text-end">Left</th>
-      </tr>
-    `;
+    setTableHead([
+      { label: '' },
+      { label: 'Property' },
+      { label: 'Floor' },
+      { label: 'Total Due', className: 'text-end' },
+      { label: 'Paid', className: 'text-end' },
+      { label: 'Left', className: 'text-end' }
+    ]);
 
     tableBody.innerHTML = withNoDues.length
       ? withNoDues
-          .map(
-            (item) => `
-              <tr class="payment-property-row">
-                <td>
-                  <input type="radio" class="form-check-input" name="selected-property" value="${item.propertyId}" aria-label="View payments for ${item.number}" />
-                </td>
-                <td>${item.number}</td>
-                <td>${item.floor}</td>
-                <td class="text-end">${formatCurrency(item.totalDue)}</td>
-                <td class="text-end">${formatCurrency(item.paid)}</td>
-                <td class="text-end text-success">${formatCurrency(item.left)}</td>
-              </tr>
-            `
+          .map((item) =>
+            fillTemplate(rowNoDuesTemplate, {
+              propertyId: item.propertyId,
+              number: item.number,
+              floor: item.floor,
+              totalDue: formatCurrency(item.totalDue),
+              paid: formatCurrency(item.paid),
+              left: formatCurrency(item.left)
+            })
           )
           .join('')
-      : '<tr><td colspan="6" class="text-secondary">No properties without obligations.</td></tr>';
+      : fillTemplate(emptyRowTemplate, { colspan: 6, text: 'No properties without obligations.' });
 
     tableBody.querySelectorAll('input[name="selected-property"]').forEach((radio) => {
       radio.addEventListener('change', () => {
@@ -257,28 +234,19 @@ export const renderPaymentsPage = async (container) => {
           )
           .sort((a, b) => (b.year - a.year) || (b.month - a.month));
 
-        const detailsHtml = `
-          <div class="table-responsive">
-            <table class="table table-sm align-middle mb-0">
-              <thead><tr><th>Period</th><th class="text-end">Paid Amount</th><th>Date</th></tr></thead>
-              <tbody>
-                ${payments.length
-                  ? payments
-                      .map(
-                        (payment) => `
-                          <tr>
-                            <td>${MONTH_NAMES[(payment.month ?? 1) - 1]} ${payment.year}</td>
-                            <td class="text-end">${formatCurrency(payment.amount)}</td>
-                            <td>${payment.date ? new Date(payment.date).toLocaleDateString('bg-BG') : '-'}</td>
-                          </tr>
-                        `
-                      )
-                      .join('')
-                  : '<tr><td colspan="3" class="text-secondary">No payments found.</td></tr>'}
-              </tbody>
-            </table>
-          </div>
-        `;
+        const detailsRows = payments.length
+          ? payments
+              .map((payment) =>
+                fillTemplate(detailsPaidRowTemplate, {
+                  period: `${MONTH_NAMES[(payment.month ?? 1) - 1]} ${payment.year}`,
+                  amount: formatCurrency(payment.amount),
+                  date: payment.date ? new Date(payment.date).toLocaleDateString('bg-BG') : '-'
+                })
+              )
+              .join('')
+          : fillTemplate(emptyRowTemplate, { colspan: 3, text: 'No payments found.' });
+
+        const detailsHtml = fillTemplate(detailsPaidTemplate, { rows: detailsRows });
 
         showDetails(`Payments for ${property.number}`, detailsHtml);
       });
@@ -287,33 +255,27 @@ export const renderPaymentsPage = async (container) => {
     return;
   }
 
-  tableHead.innerHTML = `
-    <tr>
-      <th></th>
-      <th>Property</th>
-      <th>Floor</th>
-      <th class="text-end">Pending Total</th>
-      <th class="text-end">Pending Items</th>
-    </tr>
-  `;
+  setTableHead([
+    { label: '' },
+    { label: 'Property' },
+    { label: 'Floor' },
+    { label: 'Pending Total', className: 'text-end' },
+    { label: 'Pending Items', className: 'text-end' }
+  ]);
 
   tableBody.innerHTML = withDues.length
     ? withDues
-        .map(
-          (item) => `
-            <tr class="payment-property-row">
-              <td>
-                <input type="radio" class="form-check-input" name="selected-property" value="${item.propertyId}" aria-label="View obligations for ${item.number}" />
-              </td>
-              <td>${item.number}</td>
-              <td>${item.floor}</td>
-              <td class="text-end text-danger">${formatCurrency(item.due)}</td>
-              <td class="text-end">${item.pendingCount}</td>
-            </tr>
-          `
+        .map((item) =>
+          fillTemplate(rowWithDuesTemplate, {
+            propertyId: item.propertyId,
+            number: item.number,
+            floor: item.floor,
+            due: formatCurrency(item.due),
+            pendingCount: item.pendingCount
+          })
         )
         .join('')
-    : '<tr><td colspan="5" class="text-secondary">No properties with obligations.</td></tr>';
+    : fillTemplate(emptyRowTemplate, { colspan: 5, text: 'No properties with obligations.' });
 
   tableBody.querySelectorAll('input[name="selected-property"]').forEach((radio) => {
     radio.addEventListener('change', () => {
@@ -325,40 +287,23 @@ export const renderPaymentsPage = async (container) => {
         .filter((obligation) => obligation.independent_object_id === propertyId && !isObligationPaid(obligation))
         .sort((a, b) => (b.year - a.year) || (b.month - a.month));
 
-      const detailsHtml = `
-        <div class="d-flex justify-content-between align-items-center mb-2">
-          <span class="text-secondary small">Select one or many obligations to pay.</span>
-          <button type="button" class="btn btn-sm btn-primary" id="pay-selected-property-obligations" ${pendingObligations.length ? '' : 'disabled'}>Pay Selected</button>
-        </div>
-        <div class="table-responsive">
-          <table class="table table-sm align-middle mb-0">
-            <thead>
-              <tr>
-                <th class="text-center"><input type="checkbox" class="form-check-input" id="select-all-property-obligations" /></th>
-                <th>Period</th>
-                <th class="text-end">Amount</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${pendingObligations.length
-                ? pendingObligations
-                    .map(
-                      (obligation) => `
-                        <tr>
-                          <td class="text-center"><input type="checkbox" class="form-check-input" data-obligation-id="${obligation.id}" data-obligation-amount="${Number(obligation.rate ?? 0)}" /></td>
-                          <td>${MONTH_NAMES[(obligation.month ?? 1) - 1]} ${obligation.year}</td>
-                          <td class="text-end">${formatCurrency(Number(obligation.rate ?? 0))}</td>
-                          <td><span class="badge bg-danger-subtle text-danger-emphasis">Pending</span></td>
-                        </tr>
-                      `
-                    )
-                    .join('')
-                : '<tr><td colspan="4" class="text-secondary">No pending obligations.</td></tr>'}
-            </tbody>
-          </table>
-        </div>
-      `;
+      const pendingRows = pendingObligations.length
+        ? pendingObligations
+            .map((obligation) =>
+              fillTemplate(detailsPendingRowTemplate, {
+                id: obligation.id,
+                amountRaw: Number(obligation.rate ?? 0),
+                period: `${MONTH_NAMES[(obligation.month ?? 1) - 1]} ${obligation.year}`,
+                amount: formatCurrency(Number(obligation.rate ?? 0))
+              })
+            )
+            .join('')
+        : fillTemplate(emptyRowTemplate, { colspan: 4, text: 'No pending obligations.' });
+
+      const detailsHtml = fillTemplate(detailsPendingTemplate, {
+        rows: pendingRows,
+        disabled: pendingObligations.length ? '' : 'disabled'
+      });
 
       showDetails(`Obligations for ${property.number}`, detailsHtml);
 

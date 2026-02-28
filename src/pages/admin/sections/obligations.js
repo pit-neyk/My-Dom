@@ -3,20 +3,40 @@ import { notifyError, notifyInfo } from '../../../components/toast/toast.js';
 import { getCurrentSession } from '../../../features/auth/auth.js';
 import { enableTableColumnFilters } from '../../../components/table-filters/table-filters.js';
 import { state, loadObligationsData, MONTH_NAMES, getPrevMonthYear } from '../adminState.js';
+import template from './obligations.html?raw';
+import objectCheckTemplate from './obligations-object-check.html?raw';
+import rowTemplate from './obligations-row.html?raw';
+import statusPaidTemplate from './status-paid.html?raw';
+import statusPendingTemplate from './status-pending.html?raw';
+import payButtonTemplate from './obligations-pay-button.html?raw';
+import payIconSvg from '../../../assets/icons/pay.svg?raw';
+import editIconSvg from '../../../assets/icons/edit.svg?raw';
+import deleteIconSvg from '../../../assets/icons/delete.svg?raw';
+import { fillTemplate } from '../../../lib/template.js';
+import './obligations.css';
 
 export const renderObligationsSection = async (content) => {
-  content.innerHTML = `
-    <div class="d-flex align-items-center gap-2 text-secondary py-5 justify-content-center">
-      <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
-      <span>Loading payment obligations…</span>
-    </div>
-  `;
+  content.textContent = '';
+  const loadingWrap = document.createElement('div');
+  loadingWrap.className = 'd-flex align-items-center gap-2 text-secondary py-5 justify-content-center';
+  const loadingSpinner = document.createElement('div');
+  loadingSpinner.className = 'spinner-border spinner-border-sm';
+  loadingSpinner.setAttribute('role', 'status');
+  loadingSpinner.setAttribute('aria-hidden', 'true');
+  const loadingText = document.createElement('span');
+  loadingText.textContent = 'Loading payment obligations…';
+  loadingWrap.append(loadingSpinner, loadingText);
+  content.appendChild(loadingWrap);
 
   try {
     await loadObligationsData();
   } catch (error) {
     notifyError(error.message || 'Failed to load payment obligations.');
-    content.innerHTML = '<p class="text-secondary mb-0">Unable to load payment obligations.</p>';
+    content.textContent = '';
+    const errorText = document.createElement('p');
+    errorText.className = 'text-secondary mb-0';
+    errorText.textContent = 'Unable to load payment obligations.';
+    content.appendChild(errorText);
     return;
   }
 
@@ -36,14 +56,7 @@ export const renderObligationsSection = async (content) => {
     toPaymentsArray(obligation.payments).some((payment) => payment?.status === 'paid');
 
   const objectChecks = state.objects
-    .map(
-      (obj) => `
-      <div class="form-check col-6 col-md-4">
-        <input class="form-check-input" type="checkbox" name="object_ids" value="${obj.id}" id="ob-${obj.id}" />
-        <label class="form-check-label" for="ob-${obj.id}">${obj.number}</label>
-      </div>
-    `
-    )
+    .map((obj) => fillTemplate(objectCheckTemplate, { id: obj.id, number: obj.number }))
     .join('');
 
   const rows = state.obligations
@@ -51,108 +64,25 @@ export const renderObligationsSection = async (content) => {
     .map((ob) => {
       const paid = isObligationPaid(ob);
 
-      return `
-      <tr>
-        <td class="text-center">
-          <input class="form-check-input" type="checkbox" data-obligation-select="${ob.id}" ${paid ? 'disabled' : ''} />
-        </td>
-        <td>${MONTH_NAMES[ob.month - 1]} ${ob.year}</td>
-        <td>${ob.properties?.number ?? '-'}</td>
-        <td>${ob.rate}</td>
-        <td>
-          ${paid
-            ? '<span class="badge bg-success-subtle text-success-emphasis">Paid</span>'
-            : '<span class="badge bg-danger-subtle text-danger-emphasis">Pending</span>'}
-        </td>
-        <td class="admin-inline-actions">
-          ${paid
-            ? ''
-            : `<button type="button" class="btn btn-sm btn-success" data-pay-obligation="${ob.id}" aria-label="Pay obligation ${ob.id}" title="Pay">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false">
-                  <path d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0m3.354 5.646a.5.5 0 0 1 0 .708L7.707 10a.5.5 0 0 1-.708 0L4.646 7.646a.5.5 0 1 1 .708-.708l2 2 3.293-3.292a.5.5 0 0 1 .707 0"/>
-                </svg>
-              </button>`}
-          <button type="button" class="btn btn-sm btn-outline-primary" data-edit-obligation="${ob.id}" aria-label="Edit obligation ${ob.id}" title="Edit">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false">
-              <path d="M12.854.146a.5.5 0 0 1 .707 0l2.586 2.586a.5.5 0 0 1 0 .707L6.207 13.379a.5.5 0 0 1-.168.11l-4 1.5a.5.5 0 0 1-.643-.643l1.5-4a.5.5 0 0 1 .11-.168zM11.5 1.207 2.561 10.146l-.96 2.56 2.56-.96L13.1 2.807z"/>
-            </svg>
-          </button>
-          <button type="button" class="btn btn-sm btn-outline-danger" data-delete-obligation="${ob.id}" aria-label="Delete obligation ${ob.id}" title="Delete">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false">
-              <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0A.5.5 0 0 1 8.5 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>
-              <path d="M14 3a1 1 0 0 1-1 1h-.538l-.853 10.66A2 2 0 0 1 9.615 16h-3.23a2 2 0 0 1-1.994-1.34L3.538 4H3a1 1 0 1 1 0-2h3.086a1 1 0 0 1 .707-.293h2.414a1 1 0 0 1 .707.293H13a1 1 0 0 1 1 1m-9.46 1 .84 10.5a1 1 0 0 0 .997.5h3.246a1 1 0 0 0 .997-.5l.84-10.5z"/>
-            </svg>
-          </button>
-        </td>
-      </tr>
-    `;
+      return fillTemplate(rowTemplate, {
+        id: ob.id,
+        disabled: paid ? 'disabled' : '',
+        period: `${MONTH_NAMES[ob.month - 1]} ${ob.year}`,
+        property: ob.properties?.number ?? '-',
+        rate: ob.rate,
+        statusBadge: paid ? statusPaidTemplate : statusPendingTemplate,
+        payButton: paid ? '' : fillTemplate(payButtonTemplate, { id: ob.id, payIcon: payIconSvg }),
+        editIcon: editIconSvg,
+        deleteIcon: deleteIconSvg
+      });
     })
     .join('');
 
-  content.innerHTML = `
-    <div class="card border-0 shadow-sm admin-section-card">
-      <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h3 class="h5 mb-0">Existing Obligations</h3>
-          <div class="admin-inline-actions">
-            <button class="btn btn-sm btn-success" type="button" id="pay-selected-obligations-btn" disabled>Pay Selected</button>
-            <button class="btn btn-sm btn-primary" type="button" id="open-obligation-form-btn">Create Obligation</button>
-          </div>
-        </div>
-        <div class="admin-table-wrap table-responsive">
-          <table class="table table-sm align-middle">
-            <thead>
-              <tr>
-                <th class="text-center"><input class="form-check-input" type="checkbox" id="select-all-obligations" aria-label="Select all pending obligations" /></th>
-                <th>Period</th>
-                <th>Object</th>
-                <th>Rate</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <div class="card border-0 shadow-sm d-none" id="obligation-form-panel">
-      <div class="card-body">
-        <h3 class="h5 mb-3">Create / Update Obligations</h3>
-        <form id="obligation-form" class="row g-3">
-          <input type="hidden" name="id" />
-          <div class="col-3">
-            <label class="form-label">Year</label>
-            <input class="form-control" name="year" type="number" min="2020" required value="${new Date().getFullYear()}" />
-          </div>
-          <div class="col-3">
-            <label class="form-label">Month</label>
-            <input class="form-control" name="month" type="number" min="1" max="12" required value="${new Date().getMonth() + 1}" />
-          </div>
-          <div class="col-3">
-            <label class="form-label">Rate</label>
-            <input class="form-control" name="rate" type="number" step="0.01" min="0" required />
-          </div>
-          <div class="col-3">
-            <label class="form-label">Mode</label>
-            <select class="form-select" name="mode">
-              <option value="scratch">From scratch</option>
-              <option value="copy">Copy previous month</option>
-            </select>
-          </div>
-          <div class="col-12">
-            <label class="form-label">Target objects</label>
-            <div class="row g-2">${objectChecks}</div>
-          </div>
-          <div class="col-12 admin-inline-actions">
-            <button class="btn btn-primary" type="submit">Save</button>
-            <button class="btn btn-outline-secondary" type="button" id="close-obligation-form-btn">Cancel</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  `;
+  content.innerHTML = template
+    .replace('{{rows}}', rows)
+    .replace('{{defaultYear}}', String(new Date().getFullYear()))
+    .replace('{{defaultMonth}}', String(new Date().getMonth() + 1))
+    .replace('{{objectChecks}}', objectChecks);
 
   const obligationFormPanel = content.querySelector('#obligation-form-panel');
   enableTableColumnFilters(content, { skipColumns: ['', 'actions'] });
@@ -169,10 +99,6 @@ export const renderObligationsSection = async (content) => {
     obligationFormPanel.classList.remove('d-none');
   };
 
-  const closeObligationForm = () => {
-    obligationFormPanel.classList.add('d-none');
-  };
-
   openObligationFormButton.addEventListener('click', () => {
     form.reset();
     form.elements.id.value = '';
@@ -180,9 +106,7 @@ export const renderObligationsSection = async (content) => {
   });
 
   closeObligationFormButton.addEventListener('click', () => {
-    form.reset();
-    form.elements.id.value = '';
-    closeObligationForm();
+    renderObligationsSection(content);
   });
 
   const getEligibleCheckboxes = () => Array.from(

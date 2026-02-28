@@ -27,6 +27,28 @@ const withTimeout = (promise, timeoutMs, timeoutMessage) =>
     })
   ]);
 
+const renderLoadingState = (container, message) => {
+  container.textContent = '';
+  const loadingWrap = document.createElement('div');
+  loadingWrap.className = 'd-flex align-items-center gap-2 text-secondary py-5 justify-content-center';
+  const spinner = document.createElement('div');
+  spinner.className = 'spinner-border spinner-border-sm';
+  spinner.setAttribute('role', 'status');
+  spinner.setAttribute('aria-hidden', 'true');
+  const text = document.createElement('span');
+  text.textContent = message;
+  loadingWrap.append(spinner, text);
+  container.appendChild(loadingWrap);
+};
+
+const renderErrorMessage = (container, message) => {
+  container.textContent = '';
+  const text = document.createElement('p');
+  text.className = 'text-secondary mb-0';
+  text.textContent = message;
+  container.appendChild(text);
+};
+
 const renderSection = async (sectionId, content) => {
   switch (sectionId) {
     case 'objects':
@@ -72,12 +94,7 @@ export const renderAdminPanelPage = async (container) => {
   const nav = container.querySelector('#admin-nav');
   const content = container.querySelector('#admin-content');
 
-  content.innerHTML = `
-    <div class="d-flex align-items-center gap-2 text-secondary py-5 justify-content-center">
-      <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
-      <span>Loading admin panel…</span>
-    </div>
-  `;
+  renderLoadingState(content, 'Loading admin panel…');
 
   try {
     await withTimeout(
@@ -87,7 +104,7 @@ export const renderAdminPanelPage = async (container) => {
     );
   } catch (error) {
     notifyError(error.message || 'Failed to load admin data.');
-    content.innerHTML = '<p class="text-secondary mb-0">Unable to load admin data.</p>';
+    renderErrorMessage(content, 'Unable to load admin data.');
     return;
   }
 
@@ -97,7 +114,7 @@ export const renderAdminPanelPage = async (container) => {
     (sectionId) => {
       renderSection(sectionId, content).catch((error) => {
         notifyError(error.message || 'Failed to load admin section.');
-        content.innerHTML = '<p class="text-secondary mb-0">Unable to load this admin section.</p>';
+        renderErrorMessage(content, 'Unable to load this admin section.');
       });
     },
     initialSectionId
@@ -107,7 +124,7 @@ export const renderAdminPanelPage = async (container) => {
     await renderSection(initialSectionId, content);
   } catch (error) {
     notifyError(error.message || 'Failed to load admin section.');
-    content.innerHTML = '<p class="text-secondary mb-0">Unable to load this admin section.</p>';
+    renderErrorMessage(content, 'Unable to load this admin section.');
     return;
   }
 

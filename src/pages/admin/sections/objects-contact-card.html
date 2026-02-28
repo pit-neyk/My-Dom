@@ -1,0 +1,20 @@
+<article class="card border admin-section-card mb-0">
+  <div class="card-body py-3">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h5 class="h6 mb-0">Contact</h5>
+      <div class="d-flex align-items-center gap-2">
+        <button type="button" class="btn btn-sm btn-link p-0" data-edit-property-contact="{{contactId}}" aria-label="Edit contact {{contactName}}" title="Edit">{{editIcon}}</button>
+        <button type="button" class="btn btn-sm btn-link text-danger p-0" data-delete-property-contact="{{contactId}}" aria-label="Delete contact {{contactName}}" title="Delete">{{deleteIcon}}</button>
+      </div>
+    </div>
+    <div class="row g-2">
+      <div class="col-12 col-md-6"><span class="text-secondary small d-block">Name</span><span>{{firstName}}</span></div>
+      <div class="col-12 col-md-6"><span class="text-secondary small d-block">Family name</span><span>{{familyName}}</span></div>
+      <div class="col-12 col-md-6"><span class="text-secondary small d-block">Email</span><span>{{email}}</span></div>
+      <div class="col-12 col-md-6"><span class="text-secondary small d-block">Phone</span><span>{{phone}}</span></div>
+      <div class="col-12 col-md-4"><span class="text-secondary small d-block">Type</span><span>{{type}}</span></div>
+      <div class="col-12 col-md-4"><span class="text-secondary small d-block">Start period</span><span>{{startDate}}</span></div>
+      <div class="col-12 col-md-4"><span class="text-secondary small d-block">End period</span><span>{{endDate}}</span></div>
+    </div>
+  </div>
+</article>

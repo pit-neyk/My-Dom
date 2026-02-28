@@ -1,0 +1,45 @@
+<div class="mt-4 d-none" id="property-contacts-panel">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="h6 mb-0" id="property-contacts-title">Contacts</h4>
+    <button class="btn btn-sm btn-outline-secondary" type="button" id="open-property-contact-form-btn">+ Add Contact</button>
+  </div>
+
+  <div id="property-contacts-list" class="d-flex flex-column gap-3 mb-3"></div>
+
+  <form id="property-contact-form" class="row g-3 d-none">
+    <div class="col-12 col-md-3">
+      <label class="form-label">Name</label>
+      <input class="form-control" name="first_name" required />
+    </div>
+    <div class="col-12 col-md-3">
+      <label class="form-label">Family name</label>
+      <input class="form-control" name="family_name" />
+    </div>
+    <div class="col-12 col-md-3">
+      <label class="form-label">Email</label>
+      <input class="form-control" name="email" type="email" />
+    </div>
+    <div class="col-12 col-md-3">
+      <label class="form-label">Phone</label>
+      <input class="form-control" name="phone" />
+    </div>
+    <div class="col-12 col-md-4">
+      <label class="form-label">Type</label>
+      <select class="form-select" name="contact_type" required>
+        {{contactTypeOptions}}
+      </select>
+    </div>
+    <div class="col-12 col-md-4">
+      <label class="form-label">Start period</label>
+      <input class="form-control" name="start_date" type="date" />
+    </div>
+    <div class="col-12 col-md-4">
+      <label class="form-label">End period</label>
+      <input class="form-control" name="end_date" type="date" />
+    </div>
+    <div class="col-12 admin-inline-actions">
+      <button class="btn btn-primary" type="submit">Save</button>
+      <button class="btn btn-outline-secondary" type="button" id="cancel-property-contact-btn">Cancel</button>
+    </div>
+  </form>
+</div>

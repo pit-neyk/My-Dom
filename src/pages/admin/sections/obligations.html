@@ -1,0 +1,62 @@
+<div class="card border-0 shadow-sm admin-section-card">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3 class="h5 mb-0">Existing Obligations</h3>
+      <div class="admin-inline-actions">
+        <button class="btn btn-sm btn-success" type="button" id="pay-selected-obligations-btn" disabled>Pay Selected</button>
+        <button class="btn btn-sm btn-primary" type="button" id="open-obligation-form-btn">Create Obligation</button>
+      </div>
+    </div>
+    <div class="admin-table-wrap table-responsive">
+      <table class="table table-sm align-middle">
+        <thead>
+          <tr>
+            <th class="text-center"><input class="form-check-input" type="checkbox" id="select-all-obligations" aria-label="Select all pending obligations" /></th>
+            <th>Period</th>
+            <th>Object</th>
+            <th>Rate</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>{{rows}}</tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm d-none" id="obligation-form-panel">
+  <div class="card-body">
+    <h3 class="h5 mb-3">Create / Update Obligations</h3>
+    <form id="obligation-form" class="row g-3">
+      <input type="hidden" name="id" />
+      <div class="col-3">
+        <label class="form-label">Year</label>
+        <input class="form-control" name="year" type="number" min="2020" required value="{{defaultYear}}" />
+      </div>
+      <div class="col-3">
+        <label class="form-label">Month</label>
+        <input class="form-control" name="month" type="number" min="1" max="12" required value="{{defaultMonth}}" />
+      </div>
+      <div class="col-3">
+        <label class="form-label">Rate</label>
+        <input class="form-control" name="rate" type="number" step="0.01" min="0" required />
+      </div>
+      <div class="col-3">
+        <label class="form-label">Mode</label>
+        <select class="form-select" name="mode">
+          <option value="scratch">From scratch</option>
+          <option value="copy">Copy previous month</option>
+        </select>
+      </div>
+      <div class="col-12">
+        <label class="form-label">Target objects</label>
+        <div class="row g-2">{{objectChecks}}</div>
+      </div>
+      <div class="col-12 admin-inline-actions">
+        <button class="btn btn-primary" type="submit">Save</button>
+        <button class="btn btn-outline-secondary" type="button" id="close-obligation-form-btn">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>

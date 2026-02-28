@@ -1,0 +1,52 @@
+<section class="payments-page">
+  <div class="row g-4">
+    <aside class="col-12 col-lg-3">
+      <div class="card border-0 shadow-sm sticky-top payments-sidebar">
+        <div class="card-body">
+          <div class="nav flex-column nav-pills gap-2">
+            <a class="btn btn-outline-secondary text-start" href="/admin" data-link="router">Admin Home</a>
+            <a class="btn btn-outline-secondary text-start" href="/admin/panel?section=objects" data-link="router">Properties</a>
+            <a class="btn btn-outline-secondary text-start" href="/admin/panel?section=obligations" data-link="router">Payment Obligations</a>
+            <a class="btn btn-outline-secondary text-start" href="/admin/panel?section=events" data-link="router">Events</a>
+            <a class="btn btn-outline-secondary text-start" href="/admin/panel?section=documents" data-link="router">Documents</a>
+            <a class="btn btn-outline-secondary text-start" href="/admin/panel?section=messages" data-link="router">Messages</a>
+            <a class="btn btn-outline-secondary text-start" href="/admin/panel?section=impersonation" data-link="router">View As User</a>
+            <a class="btn btn-outline-secondary text-start" href="/admin/panel?section=profile" data-link="router">My Profile</a>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="col-12 col-lg-9">
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <h2 class="h5 mb-0" id="payments-page-title">Properties With Obligations</h2>
+            <div class="d-flex gap-2">
+              <a class="btn btn-sm btn-outline-secondary" id="payments-without-obligations-link" href="/payments?dues=with_no_dues" data-link="router">Without Obligations</a>
+              <a class="btn btn-sm btn-outline-secondary" id="payments-with-obligations-link" href="/payments?dues=with_dues" data-link="router">With Obligations</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead id="payments-table-head"></thead>
+              <tbody id="payments-table-body">
+                <tr><td colspan="7" class="text-secondary">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div id="payments-detail-panel" class="payment-details-panel d-none mt-3">
+            <h3 class="h6 mb-3" id="payments-detail-title">Details</h3>
+            <div id="payments-detail-content"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

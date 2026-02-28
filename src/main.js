@@ -6,6 +6,7 @@ import { renderFooter } from './components/footer/footer.js';
 import { initRouter, renderCurrentRoute } from './router/router.js';
 import { initAuth } from './features/auth/auth.js';
 import { notifyError } from './components/toast/toast.js';
+import template from './main.html?raw';
 
 const NON_APP_ERROR_SNIPPETS = [
   'A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received',
@@ -62,13 +63,7 @@ window.addEventListener('error', (event) => {
 
 const appRoot = document.getElementById('app');
 
-appRoot.innerHTML = `
-  <div class="app-shell d-flex flex-column min-vh-100">
-    <header id="header-slot"></header>
-    <main id="page-slot" class="container py-4 flex-grow-1"></main>
-    <footer id="footer-slot"></footer>
-  </div>
-`;
+appRoot.innerHTML = template;
 
 renderHeader(window.location.pathname);
 renderFooter();

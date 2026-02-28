@@ -1,0 +1,17 @@
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <span class="text-secondary small">Select one or many obligations to pay.</span>
+  <button type="button" class="btn btn-sm btn-primary" id="pay-selected-property-obligations" {{disabled}}>Pay Selected</button>
+</div>
+<div class="table-responsive">
+  <table class="table table-sm align-middle mb-0">
+    <thead>
+      <tr>
+        <th class="text-center"><input type="checkbox" class="form-check-input" id="select-all-property-obligations" /></th>
+        <th>Period</th>
+        <th class="text-end">Amount</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>{{rows}}</tbody>
+  </table>
+</div>

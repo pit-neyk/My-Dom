@@ -50,19 +50,24 @@ export const showToast = ({
   toastElement.ariaLive = liveMode;
   toastElement.ariaAtomic = 'true';
 
-  toastElement.innerHTML = `
-    <div class="d-flex">
-      <div class="toast-body">
-        <strong class="me-1">${title}:</strong>${message}
-      </div>
-      <button
-        type="button"
-        class="btn-close btn-close-white me-2 m-auto"
-        data-bs-dismiss="toast"
-        aria-label="Close"
-      ></button>
-    </div>
-  `;
+  const wrapper = document.createElement('div');
+  wrapper.className = 'd-flex';
+
+  const body = document.createElement('div');
+  body.className = 'toast-body';
+  const titleNode = document.createElement('strong');
+  titleNode.className = 'me-1';
+  titleNode.textContent = `${title}:`;
+  body.append(titleNode, message);
+
+  const closeButton = document.createElement('button');
+  closeButton.type = 'button';
+  closeButton.className = 'btn-close btn-close-white me-2 m-auto';
+  closeButton.setAttribute('data-bs-dismiss', 'toast');
+  closeButton.setAttribute('aria-label', 'Close');
+
+  wrapper.append(body, closeButton);
+  toastElement.appendChild(wrapper);
 
   container.appendChild(toastElement);
 

@@ -1,6 +1,8 @@
 import { routeMap } from './routes.js';
 import { renderHeader } from '../components/header/header.js';
 import { notifyError } from '../components/toast/toast.js';
+import placeholderTemplate from './placeholder.html?raw';
+import errorTemplate from './error.html?raw';
 
 const pageSlot = () => document.getElementById('page-slot');
 
@@ -19,25 +21,11 @@ const normalizePath = (pathname) => {
 };
 
 const renderPlaceholderPage = (path) => {
-  pageSlot().innerHTML = `
-    <section class="card border-0 shadow-sm">
-      <div class="card-body">
-        <h1 class="h4 mb-2">Page in progress</h1>
-        <p class="mb-0 text-secondary">Route <strong>${path}</strong> is configured, but its page component is not created yet.</p>
-      </div>
-    </section>
-  `;
+  pageSlot().innerHTML = placeholderTemplate.replace('{{path}}', path);
 };
 
 const renderErrorPage = () => {
-  pageSlot().innerHTML = `
-    <section class="card border-0 shadow-sm">
-      <div class="card-body">
-        <h1 class="h4 mb-2">Something went wrong</h1>
-        <p class="mb-0 text-secondary">The page failed to load. Please try refreshing the page.</p>
-      </div>
-    </section>
-  `;
+  pageSlot().innerHTML = errorTemplate;
 };
 
 export const renderCurrentRoute = () => {

@@ -4,6 +4,8 @@ import { isAdmin, isAuthenticated } from '../../features/auth/auth.js';
 import { navigateTo } from '../../router/router.js';
 import { supabase } from '../../lib/supabase.js';
 import { notifyError } from '../../components/toast/toast.js';
+import messageItemTemplate from './message-item.html?raw';
+import { fillTemplate } from '../../lib/template.js';
 
 let latestAdminHomeRenderId = 0;
 
@@ -154,19 +156,23 @@ export const renderAdminHomePage = async (container) => {
   container.querySelector('#admin-total-due').textContent = formatCurrency(due);
 
   const messagesContainer = container.querySelector('#admin-home-messages');
-  messagesContainer.innerHTML = safeMessages.length
-    ? safeMessages
-        .map(
-          (message) => `
-            <article class="admin-home-message-item">
-              <h3 class="h6 mb-1">${message.title}</h3>
-              <p class="mb-1 text-secondary small">${new Date(message.created_at).toLocaleString('bg-BG')}</p>
-              <div>${message.content_html}</div>
-            </article>
-          `
-        )
-        .join('')
-    : '<p class="text-secondary mb-0">No messages.</p>';
+  if (!safeMessages.length) {
+    messagesContainer.textContent = '';
+    const emptyText = document.createElement('p');
+    emptyText.className = 'text-secondary mb-0';
+    emptyText.textContent = 'No messages.';
+    messagesContainer.appendChild(emptyText);
+  } else {
+    messagesContainer.innerHTML = safeMessages
+      .map((message) =>
+        fillTemplate(messageItemTemplate, {
+          title: message.title,
+          createdAt: new Date(message.created_at).toLocaleString('bg-BG'),
+          contentHtml: message.content_html
+        })
+      )
+      .join('');
+  }
 
   const filterCards = Array.from(container.querySelectorAll('.admin-home-filter-card'));
 

@@ -5,6 +5,17 @@ import { state, getUserDisplay } from '../adminState.js';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
+import template from './objects.html?raw';
+import contactsPanelTemplate from './objects-contacts-panel.html?raw';
+import rowTemplate from './objects-row.html?raw';
+import contactCardTemplate from './objects-contact-card.html?raw';
+import contactsCellTemplate from './objects-contacts-cell.html?raw';
+import contactsHeaderTemplate from './objects-contacts-header.html?raw';
+import emptySecondaryTextTemplate from './empty-secondary-text.html?raw';
+import editIconSvg from '../../../assets/icons/edit.svg?raw';
+import deleteIconSvg from '../../../assets/icons/delete.svg?raw';
+import { fillTemplate } from '../../../lib/template.js';
+import './objects.css';
 
 const CONTACT_TYPE_OPTIONS = [
   { value: 'owner', label: 'Owner' },
@@ -48,6 +59,15 @@ const PROPERTY_SORT_OPTIONS = [
 const isMissingPropertyContactsTableError = (error) =>
   error?.code === 'PGRST205' || error?.code === '42P01' || error?.status === 404;
 
+const isMissingContactPeriodColumnsError = (error) => {
+  if (error?.code !== 'PGRST204') {
+    return false;
+  }
+
+  const errorText = `${error?.message ?? ''} ${error?.details ?? ''} ${error?.hint ?? ''}`.toLowerCase();
+  return errorText.includes('start_date') || errorText.includes('end_date');
+};
+
 const refreshObjectsAndProfilesData = async () => {
   const [objectsRes, profilesRes] = await Promise.all([
     supabase.from('properties').select('*').order('number'),
@@ -90,18 +110,102 @@ const getContactTypeLabel = (type) =>
 const getContactFullName = (contact) =>
   [contact.first_name, contact.middle_name, contact.family_name].filter(Boolean).join(' ');
 
-const editIconSvg = `
-  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false">
-    <path d="M12.854.146a.5.5 0 0 1 .707 0l2.586 2.586a.5.5 0 0 1 0 .707L6.207 13.379a.5.5 0 0 1-.168.11l-4 1.5a.5.5 0 0 1-.643-.643l1.5-4a.5.5 0 0 1 .11-.168zM11.5 1.207 2.561 10.146l-.96 2.56 2.56-.96L13.1 2.807z"/>
-  </svg>
-`;
+const getPropertyOwnerName = (property) => {
+  const ownerProfile = state.profiles.find((profile) => profile.user_id === property.owner_user_id);
+  if (ownerProfile) {
+    return getUserDisplay(ownerProfile);
+  }
 
-const deleteIconSvg = `
-  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false">
-    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0A.5.5 0 0 1 8.5 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>
-    <path d="M14 3a1 1 0 0 1-1 1h-.538l-.853 10.66A2 2 0 0 1 9.615 16h-3.23a2 2 0 0 1-1.994-1.34L3.538 4H3a1 1 0 1 1 0-2h3.086a1 1 0 0 1 .707-.293h2.414a1 1 0 0 1 .707.293H13a1 1 0 0 1 1 1m-9.46 1 .84 10.5a1 1 0 0 0 .997.5h3.246a1 1 0 0 0 .997-.5l.84-10.5z"/>
-  </svg>
-`;
+  const ownerContacts = getPropertyContacts(property.id).filter((contact) => contact.contact_type === 'owner');
+  if (ownerContacts.length === 0) {
+    return '-';
+  }
+
+  const prioritizedOwnerContact = [...ownerContacts].sort((left, right) => {
+    const leftOpenEnded = !left.end_date;
+    const rightOpenEnded = !right.end_date;
+
+    if (leftOpenEnded !== rightOpenEnded) {
+      return leftOpenEnded ? -1 : 1;
+    }
+
+    const leftStartDate = left.start_date ?? '';
+    const rightStartDate = right.start_date ?? '';
+    return rightStartDate.localeCompare(leftStartDate);
+  })[0];
+
+  return getContactFullName(prioritizedOwnerContact) || prioritizedOwnerContact.email || prioritizedOwnerContact.phone || '-';
+};
+
+const toPropertyContactPayload = (contactPayload, propertyId, includePeriod = true) => {
+  const payload = {
+    property_id: propertyId,
+    contact_type: contactPayload.contact_type,
+    first_name: contactPayload.first_name,
+    middle_name: null,
+    family_name: contactPayload.family_name || null,
+    email: contactPayload.email || null,
+    phone: contactPayload.phone || null
+  };
+
+  if (includePeriod) {
+    payload.start_date = contactPayload.start_date || null;
+    payload.end_date = contactPayload.end_date || null;
+  }
+
+  return payload;
+};
+
+const insertPropertyContacts = async (contactsPayload) => {
+  const initialInsertRes = await supabase.from('property_contacts').insert(contactsPayload);
+
+  if (!initialInsertRes.error) {
+    return { error: null, usedPeriodColumns: true };
+  }
+
+  if (!isMissingContactPeriodColumnsError(initialInsertRes.error)) {
+    return { error: initialInsertRes.error, usedPeriodColumns: true };
+  }
+
+  const retryPayload = contactsPayload.map(({ start_date, end_date, ...rest }) => rest);
+  const retryRes = await supabase.from('property_contacts').insert(retryPayload);
+
+  return {
+    error: retryRes.error ?? null,
+    usedPeriodColumns: false
+  };
+};
+
+const updatePropertyContact = async (contactId, contactPayload, propertyId) => {
+  const { property_id, ...payloadWithPeriod } = toPropertyContactPayload(contactPayload, propertyId, true);
+
+  const initialUpdateRes = await supabase
+    .from('property_contacts')
+    .update(payloadWithPeriod)
+    .eq('id', contactId);
+
+  if (!initialUpdateRes.error) {
+    return { error: null, usedPeriodColumns: true };
+  }
+
+  if (!isMissingContactPeriodColumnsError(initialUpdateRes.error)) {
+    return { error: initialUpdateRes.error, usedPeriodColumns: true };
+  }
+
+  const retryPayload = Object.fromEntries(
+    Object.entries(payloadWithPeriod).filter(([key]) => key !== 'start_date' && key !== 'end_date')
+  );
+
+  const retryRes = await supabase
+    .from('property_contacts')
+    .update(retryPayload)
+    .eq('id', contactId);
+
+  return {
+    error: retryRes.error ?? null,
+    usedPeriodColumns: false
+  };
+};
 
 export const renderObjectsSection = (content, options = {}) => {
   const selectedPropertyId = options.selectedPropertyId ?? '';
@@ -109,11 +213,12 @@ export const renderObjectsSection = (content, options = {}) => {
   const propertyContactsEnabled = state.propertyContactsEnabled !== false;
 
   const rowsData = state.objects.map((item) => {
-    const owner = state.profiles.find((profile) => profile.user_id === item.owner_user_id);
+    const propertyContacts = propertyContactsEnabled ? getPropertyContacts(item.id) : [];
+
     return {
       item,
-      ownerName: owner ? getUserDisplay(owner) : '-',
-      contactsCount: propertyContactsEnabled ? getPropertyContacts(item.id).length : 0
+      ownerName: getPropertyOwnerName(item),
+      contactsCount: propertyContacts.length
     };
   });
 
@@ -151,142 +256,36 @@ export const renderObjectsSection = (content, options = {}) => {
   const sortedRowsData = sortRowsData(rowsData, sortBy);
 
   const rows = sortedRowsData
-    .map(({ item, ownerName, contactsCount }) => `
-      <tr>
-        <td>${item.number}</td>
-        <td>${item.floor}</td>
-        <td>${item.square_meters ?? '-'}</td>
-        <td>${item.tenants_count ?? 0}</td>
-        <td>${ownerName}</td>
-        ${propertyContactsEnabled ? `<td>${contactsCount}</td>` : ''}
-        <td class="admin-inline-actions">
-          <button type="button" class="btn btn-sm btn-outline-primary" data-edit-object="${item.id}" aria-label="Edit property ${item.number}" title="Edit">${editIconSvg}</button>
-          <button type="button" class="btn btn-sm btn-outline-danger" data-delete-object="${item.id}" aria-label="Delete property ${item.number}" title="Delete">${deleteIconSvg}</button>
-        </td>
-      </tr>
-    `)
+    .map(({ item, ownerName, contactsCount }) =>
+      fillTemplate(rowTemplate, {
+        id: item.id,
+        number: item.number,
+        floor: item.floor,
+        squareMeters: item.square_meters ?? '-',
+        tenants: item.tenants_count ?? 0,
+        owner: ownerName,
+        contactsCell: propertyContactsEnabled
+          ? fillTemplate(contactsCellTemplate, { contactsCount })
+          : '',
+        editIcon: editIconSvg,
+        deleteIcon: deleteIconSvg
+      })
+    )
     .join('');
 
-  content.innerHTML = `
-    <div class="card border-0 shadow-sm admin-section-card" id="properties-list-card">
-      <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h3 class="h5 mb-0">All Properties</h3>
-          <div class="admin-inline-actions">
-            <label class="visually-hidden" for="property-sort-select">Sort properties</label>
-            <select class="form-select form-select-sm" id="property-sort-select" aria-label="Sort properties">
-              ${PROPERTY_SORT_OPTIONS.map((option) => `<option value="${option.value}" ${option.value === sortBy ? 'selected' : ''}>${option.label}</option>`).join('')}
-            </select>
-            <button class="btn btn-sm btn-outline-secondary" type="button" id="download-properties-xlsx-btn">XLSX</button>
-            <button class="btn btn-sm btn-outline-secondary" type="button" id="download-properties-pdf-btn">PDF</button>
-            <button class="btn btn-sm btn-primary" type="button" id="open-property-form-btn">Add Property</button>
-          </div>
-        </div>
-        <div class="admin-table-wrap table-responsive">
-          <table class="table table-sm align-middle">
-            <thead>
-              <tr>
-                <th>Number</th><th>Floor</th><th>Sq m</th><th>Tenants</th><th>Owner</th>${propertyContactsEnabled ? '<th>Contacts</th>' : ''}<th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+  const propertySortOptions = '';
+  const propertyTypeOptions = '';
+  const contactTypeOptions = '';
+  const propertyContactsPanelMarkup = propertyContactsEnabled
+    ? contactsPanelTemplate.replace('{{contactTypeOptions}}', contactTypeOptions)
+    : '';
 
-    <div class="card border-0 shadow-sm d-none" id="property-form-panel">
-      <div class="card-body">
-        <h3 class="h5 mb-3" id="property-form-title">Add Property</h3>
-        <form id="object-form" class="row g-3">
-          <input type="hidden" name="id" />
-          <div class="col-12 col-md-4">
-            <label class="form-label">Floor</label>
-            <input class="form-control" name="floor" type="number" min="0" required />
-          </div>
-          <div class="col-12 col-md-4">
-            <label class="form-label">Property Number</label>
-            <input class="form-control" name="number" required />
-          </div>
-          <div class="col-12 col-md-4">
-            <label class="form-label">Property Type</label>
-            <select class="form-select" name="property_type">
-              <option value="">Select type</option>
-              ${PROPERTY_TYPE_OPTIONS.map((option) => `<option value="${option.value}">${option.label}</option>`).join('')}
-            </select>
-          </div>
-          <div class="col-12 col-md-4">
-            <label class="form-label">Inhabitants</label>
-            <input class="form-control" name="tenants_count" type="number" min="0" />
-          </div>
-          <div class="col-12 col-md-4">
-            <label class="form-label">Animals</label>
-            <input class="form-control" name="pets_count" type="number" min="0" />
-          </div>
-          <div class="col-12 col-md-4">
-            <label class="form-label">Built area</label>
-            <input class="form-control" name="square_meters" type="number" min="0" step="0.01" />
-          </div>
-          <div class="col-12 col-md-4">
-            <label class="form-label">Ideal parts</label>
-            <input class="form-control" name="ideal_parts" type="number" min="0" step="0.001" />
-          </div>
-          <div class="col-12 admin-inline-actions">
-            <button class="btn btn-primary" type="submit">Save</button>
-            <button class="btn btn-outline-secondary" type="button" id="close-property-form-btn">Cancel</button>
-          </div>
-        </form>
-
-        ${propertyContactsEnabled ? `
-          <div class="mt-4 d-none" id="property-contacts-panel">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-              <h4 class="h6 mb-0" id="property-contacts-title">Contacts</h4>
-              <button class="btn btn-sm btn-outline-secondary" type="button" id="open-property-contact-form-btn">+ Add Contact</button>
-            </div>
-
-            <div id="property-contacts-list" class="d-flex flex-column gap-3 mb-3"></div>
-
-            <form id="property-contact-form" class="row g-3 d-none">
-              <div class="col-12 col-md-3">
-                <label class="form-label">Name</label>
-                <input class="form-control" name="first_name" required />
-              </div>
-              <div class="col-12 col-md-3">
-                <label class="form-label">Family name</label>
-                <input class="form-control" name="family_name" />
-              </div>
-              <div class="col-12 col-md-3">
-                <label class="form-label">Email</label>
-                <input class="form-control" name="email" type="email" />
-              </div>
-              <div class="col-12 col-md-3">
-                <label class="form-label">Phone</label>
-                <input class="form-control" name="phone" />
-              </div>
-              <div class="col-12 col-md-4">
-                <label class="form-label">Type</label>
-                <select class="form-select" name="contact_type" required>
-                  ${CONTACT_TYPE_OPTIONS.map((option) => `<option value="${option.value}">${option.label}</option>`).join('')}
-                </select>
-              </div>
-              <div class="col-12 col-md-4">
-                <label class="form-label">Start period</label>
-                <input class="form-control" name="start_date" type="date" />
-              </div>
-              <div class="col-12 col-md-4">
-                <label class="form-label">End period</label>
-                <input class="form-control" name="end_date" type="date" />
-              </div>
-              <div class="col-12 admin-inline-actions">
-                <button class="btn btn-primary" type="submit">Save</button>
-                <button class="btn btn-outline-secondary" type="button" id="cancel-property-contact-btn">Cancel</button>
-              </div>
-            </form>
-          </div>
-        ` : ''}
-      </div>
-    </div>
-  `;
+  content.innerHTML = template
+    .replace('{{propertySortOptions}}', propertySortOptions)
+    .replace('{{contactsHeader}}', propertyContactsEnabled ? contactsHeaderTemplate : '')
+    .replace('{{rows}}', rows)
+    .replace('{{propertyTypeOptions}}', propertyTypeOptions)
+    .replace('{{propertyContactsPanel}}', propertyContactsPanelMarkup);
 
   const propertyFormPanel = content.querySelector('#property-form-panel');
   const propertiesListCard = content.querySelector('#properties-list-card');
@@ -294,6 +293,7 @@ export const renderObjectsSection = (content, options = {}) => {
 
   const openPropertyFormButton = content.querySelector('#open-property-form-btn');
   const propertySortSelect = content.querySelector('#property-sort-select');
+  const propertyTypeSelect = content.querySelector('select[name="property_type"]');
   const downloadPropertiesXlsxButton = content.querySelector('#download-properties-xlsx-btn');
   const downloadPropertiesPdfButton = content.querySelector('#download-properties-pdf-btn');
   const form = content.querySelector('#object-form');
@@ -303,13 +303,39 @@ export const renderObjectsSection = (content, options = {}) => {
   const propertyContactsTitle = content.querySelector('#property-contacts-title');
   const openPropertyContactFormButton = content.querySelector('#open-property-contact-form-btn');
   const propertyContactForm = content.querySelector('#property-contact-form');
+  const propertyContactTypeSelect = propertyContactForm?.elements?.contact_type;
   const cancelPropertyContactButton = content.querySelector('#cancel-property-contact-btn');
   const propertyContactsList = content.querySelector('#property-contacts-list');
+
+  PROPERTY_SORT_OPTIONS.forEach((option) => {
+    const optionNode = document.createElement('option');
+    optionNode.value = option.value;
+    optionNode.textContent = option.label;
+    optionNode.selected = option.value === sortBy;
+    propertySortSelect.appendChild(optionNode);
+  });
+
+  PROPERTY_TYPE_OPTIONS.forEach((option) => {
+    const optionNode = document.createElement('option');
+    optionNode.value = option.value;
+    optionNode.textContent = option.label;
+    propertyTypeSelect?.appendChild(optionNode);
+  });
+
+  CONTACT_TYPE_OPTIONS.forEach((option) => {
+    const optionNode = document.createElement('option');
+    optionNode.value = option.value;
+    optionNode.textContent = option.label;
+    propertyContactTypeSelect?.appendChild(optionNode);
+  });
 
   let propertyFormMode = 'add';
   let activePropertyId = '';
   let draftPropertyContacts = [];
   let draftContactCounter = 0;
+  let propertyContactFormMode = 'add';
+  let editingPropertyContactId = '';
+  let editingDraftContactId = '';
 
   content.prepend(propertyFormPanel);
 
@@ -370,6 +396,9 @@ export const renderObjectsSection = (content, options = {}) => {
     if (!propertyContactForm) return;
     propertyContactForm.reset();
     propertyContactForm.elements.contact_type.value = CONTACT_TYPE_OPTIONS[0].value;
+    propertyContactFormMode = 'add';
+    editingPropertyContactId = '';
+    editingDraftContactId = '';
   };
 
   const openPropertyContactForm = () => {
@@ -384,6 +413,19 @@ export const renderObjectsSection = (content, options = {}) => {
     resetPropertyContactForm();
   };
 
+  const populatePropertyContactForm = (contact) => {
+    if (!propertyContactForm) return;
+
+    propertyContactForm.elements.first_name.value = contact.first_name ?? '';
+    propertyContactForm.elements.family_name.value = contact.family_name ?? '';
+    propertyContactForm.elements.email.value = contact.email ?? '';
+    propertyContactForm.elements.phone.value = contact.phone ?? '';
+    propertyContactForm.elements.contact_type.value = contact.contact_type ?? CONTACT_TYPE_OPTIONS[0].value;
+    propertyContactForm.elements.start_date.value = contact.start_date ?? '';
+    propertyContactForm.elements.end_date.value = contact.end_date ?? '';
+    propertyContactForm.classList.remove('d-none');
+  };
+
   const renderPropertyContactsList = (propertyId) => {
     if (!propertyContactsEnabled || !propertyContactsList) return;
 
@@ -396,29 +438,23 @@ export const renderObjectsSection = (content, options = {}) => {
         const contactId = isDraftMode ? contact.temp_id : contact.id;
         const contactName = getContactFullName(contact) || contact.first_name || '';
 
-        return `
-        <article class="card border admin-section-card mb-0">
-          <div class="card-body py-3">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <h5 class="h6 mb-0">Contact</h5>
-              <button type="button" class="btn btn-sm btn-link text-danger p-0" data-delete-property-contact="${contactId}" aria-label="Delete contact ${contactName}" title="Delete">${deleteIconSvg}</button>
-            </div>
-            <div class="row g-2">
-              <div class="col-12 col-md-6"><span class="text-secondary small d-block">Name</span><span>${contact.first_name ?? '-'}</span></div>
-              <div class="col-12 col-md-6"><span class="text-secondary small d-block">Family name</span><span>${contact.family_name ?? '-'}</span></div>
-              <div class="col-12 col-md-6"><span class="text-secondary small d-block">Email</span><span>${contact.email ?? '-'}</span></div>
-              <div class="col-12 col-md-6"><span class="text-secondary small d-block">Phone</span><span>${contact.phone ?? '-'}</span></div>
-              <div class="col-12 col-md-4"><span class="text-secondary small d-block">Type</span><span>${getContactTypeLabel(contact.contact_type)}</span></div>
-              <div class="col-12 col-md-4"><span class="text-secondary small d-block">Start period</span><span>${contact.start_date ?? '-'}</span></div>
-              <div class="col-12 col-md-4"><span class="text-secondary small d-block">End period</span><span>${contact.end_date ?? '-'}</span></div>
-            </div>
-          </div>
-        </article>
-      `;
+        return fillTemplate(contactCardTemplate, {
+          contactId,
+          contactName,
+          editIcon: editIconSvg,
+          deleteIcon: deleteIconSvg,
+          firstName: contact.first_name ?? '-',
+          familyName: contact.family_name ?? '-',
+          email: contact.email ?? '-',
+          phone: contact.phone ?? '-',
+          type: getContactTypeLabel(contact.contact_type),
+          startDate: contact.start_date ?? '-',
+          endDate: contact.end_date ?? '-'
+        });
       })
       .join('');
 
-    propertyContactsList.innerHTML = contactsRows || '<p class="text-secondary mb-0">No contacts added.</p>';
+    propertyContactsList.innerHTML = contactsRows || fillTemplate(emptySecondaryTextTemplate, { text: 'No contacts added.' });
 
     propertyContactsList.querySelectorAll('[data-delete-property-contact]').forEach((button) => {
       button.addEventListener('click', async () => {
@@ -447,6 +483,31 @@ export const renderObjectsSection = (content, options = {}) => {
         }
 
         renderObjectsSection(content, { selectedPropertyId: propertyId, sortBy });
+      });
+    });
+
+    propertyContactsList.querySelectorAll('[data-edit-property-contact]').forEach((button) => {
+      button.addEventListener('click', () => {
+        if (!propertyContactForm) return;
+
+        if (isDraftMode) {
+          const draftContact = draftPropertyContacts.find((contact) => contact.temp_id === button.dataset.editPropertyContact);
+          if (!draftContact) return;
+
+          propertyContactFormMode = 'edit';
+          editingDraftContactId = draftContact.temp_id;
+          editingPropertyContactId = '';
+          populatePropertyContactForm(draftContact);
+          return;
+        }
+
+        const existingContact = getPropertyContacts(resolvedPropertyId).find((contact) => contact.id === button.dataset.editPropertyContact);
+        if (!existingContact) return;
+
+        propertyContactFormMode = 'edit';
+        editingPropertyContactId = existingContact.id;
+        editingDraftContactId = '';
+        populatePropertyContactForm(existingContact);
       });
     });
   };
@@ -521,11 +582,7 @@ export const renderObjectsSection = (content, options = {}) => {
   downloadPropertiesPdfButton.addEventListener('click', exportPropertiesToPdf);
 
   closeFormButton.addEventListener('click', () => {
-    form.reset();
-    form.elements.id.value = '';
-    draftPropertyContacts = [];
-    setFormMode('add');
-    closeForm();
+    renderObjectsSection(content, { sortBy });
   });
 
   if (propertyContactsEnabled && openPropertyContactFormButton) {
@@ -570,21 +627,13 @@ export const renderObjectsSection = (content, options = {}) => {
     }
 
     if (!propertyId && propertyContactsEnabled && draftPropertyContacts.length > 0) {
-      const contactsToInsert = draftPropertyContacts.map((contact) => ({
-        property_id: savedPropertyId,
-        contact_type: contact.contact_type,
-        first_name: contact.first_name,
-        middle_name: null,
-        family_name: contact.family_name || null,
-        email: contact.email || null,
-        phone: contact.phone || null,
-        start_date: contact.start_date || null,
-        end_date: contact.end_date || null
-      }));
+      const contactsToInsert = draftPropertyContacts.map((contact) => toPropertyContactPayload(contact, savedPropertyId, true));
 
-      const contactsInsertRes = await supabase.from('property_contacts').insert(contactsToInsert);
+      const contactsInsertRes = await insertPropertyContacts(contactsToInsert);
       if (contactsInsertRes.error) {
         notifyError(contactsInsertRes.error.message || 'Property created, but contacts could not be saved.');
+      } else if (!contactsInsertRes.usedPeriodColumns) {
+        notifyInfo('Contacts saved without start/end period because your database schema is missing those columns.');
       }
     }
 
@@ -598,7 +647,7 @@ export const renderObjectsSection = (content, options = {}) => {
       return;
     }
 
-    renderObjectsSection(content, { selectedPropertyId: savedPropertyId || '', sortBy });
+    renderObjectsSection(content, { sortBy });
   });
 
   if (propertyContactsEnabled && propertyContactForm) {
@@ -608,6 +657,30 @@ export const renderObjectsSection = (content, options = {}) => {
       const contactPayload = Object.fromEntries(new FormData(propertyContactForm).entries());
 
       if (!activePropertyId) {
+        if (propertyContactFormMode === 'edit' && editingDraftContactId) {
+          draftPropertyContacts = draftPropertyContacts.map((contact) => {
+            if (contact.temp_id !== editingDraftContactId) {
+              return contact;
+            }
+
+            return {
+              ...contact,
+              contact_type: contactPayload.contact_type,
+              first_name: contactPayload.first_name,
+              family_name: contactPayload.family_name || null,
+              email: contactPayload.email || null,
+              phone: contactPayload.phone || null,
+              start_date: contactPayload.start_date || null,
+              end_date: contactPayload.end_date || null
+            };
+          });
+
+          notifyInfo('Contact updated.');
+          closePropertyContactForm();
+          renderPropertyContactsList('');
+          return;
+        }
+
         draftContactCounter += 1;
         draftPropertyContacts.push({
           temp_id: `draft-${draftContactCounter}`,
@@ -626,21 +699,42 @@ export const renderObjectsSection = (content, options = {}) => {
         return;
       }
 
-      const { error } = await supabase.from('property_contacts').insert({
-        property_id: activePropertyId,
-        contact_type: contactPayload.contact_type,
-        first_name: contactPayload.first_name,
-        middle_name: null,
-        family_name: contactPayload.family_name || null,
-        email: contactPayload.email || null,
-        phone: contactPayload.phone || null,
-        start_date: contactPayload.start_date || null,
-        end_date: contactPayload.end_date || null
-      });
+      if (propertyContactFormMode === 'edit' && editingPropertyContactId) {
+        const contactUpdateRes = await updatePropertyContact(editingPropertyContactId, contactPayload, activePropertyId);
 
-      if (error) {
-        notifyError(error.message || 'Failed to save contact.');
+        if (contactUpdateRes.error) {
+          notifyError(contactUpdateRes.error.message || 'Failed to update contact.');
+          return;
+        }
+
+        if (!contactUpdateRes.usedPeriodColumns) {
+          notifyInfo('Contact updated without start/end period because your database schema is missing those columns.');
+        }
+
+        notifyInfo('Contact updated.');
+
+        try {
+          await refreshObjectsAndProfilesData();
+        } catch (refreshError) {
+          notifyError(refreshError.message || 'Contact updated, but refresh failed. Please reopen the section.');
+          return;
+        }
+
+        renderObjectsSection(content, { selectedPropertyId: activePropertyId, sortBy });
         return;
+      }
+
+      const contactInsertRes = await insertPropertyContacts([
+        toPropertyContactPayload(contactPayload, activePropertyId, true)
+      ]);
+
+      if (contactInsertRes.error) {
+        notifyError(contactInsertRes.error.message || 'Failed to save contact.');
+        return;
+      }
+
+      if (!contactInsertRes.usedPeriodColumns) {
+        notifyInfo('Contact saved without start/end period because your database schema is missing those columns.');
       }
 
       notifyInfo('Contact saved.');

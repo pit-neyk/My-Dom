@@ -3,70 +3,28 @@ import { notifyError, notifyInfo } from '../../../components/toast/toast.js';
 import { enableTableColumnFilters } from '../../../components/table-filters/table-filters.js';
 import { getCurrentSession } from '../../../features/auth/auth.js';
 import { state, loadInitialData, formatDateTime } from '../adminState.js';
+import template from './messages.html?raw';
+import rowTemplate from './messages-row.html?raw';
+import editIconSvg from '../../../assets/icons/edit.svg?raw';
+import deleteIconSvg from '../../../assets/icons/delete.svg?raw';
+import { fillTemplate } from '../../../lib/template.js';
+import './messages.css';
 
 export const renderMassMessagesSection = (content) => {
   const rows = state.messages
-    .map(
-      (msg) => `
-      <tr>
-        <td>${msg.title}</td>
-        <td>${msg.content_html}</td>
-        <td>${formatDateTime(msg.created_at)}</td>
-        <td class="admin-inline-actions">
-          <button type="button" class="btn btn-sm btn-outline-primary" data-edit-msg="${msg.id}" aria-label="Edit message ${msg.title}" title="Edit">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false">
-              <path d="M12.854.146a.5.5 0 0 1 .707 0l2.586 2.586a.5.5 0 0 1 0 .707L6.207 13.379a.5.5 0 0 1-.168.11l-4 1.5a.5.5 0 0 1-.643-.643l1.5-4a.5.5 0 0 1 .11-.168zM11.5 1.207 2.561 10.146l-.96 2.56 2.56-.96L13.1 2.807z"/>
-            </svg>
-          </button>
-          <button type="button" class="btn btn-sm btn-outline-danger" data-delete-msg="${msg.id}" aria-label="Delete message ${msg.title}" title="Delete">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false">
-              <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0A.5.5 0 0 1 8.5 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>
-              <path d="M14 3a1 1 0 0 1-1 1h-.538l-.853 10.66A2 2 0 0 1 9.615 16h-3.23a2 2 0 0 1-1.994-1.34L3.538 4H3a1 1 0 1 1 0-2h3.086a1 1 0 0 1 .707-.293h2.414a1 1 0 0 1 .707.293H13a1 1 0 0 1 1 1m-9.46 1 .84 10.5a1 1 0 0 0 .997.5h3.246a1 1 0 0 0 .997-.5l.84-10.5z"/>
-            </svg>
-          </button>
-        </td>
-      </tr>
-    `
+    .map((msg) =>
+      fillTemplate(rowTemplate, {
+        id: msg.id,
+        title: msg.title,
+        contentHtml: msg.content_html,
+        createdAt: formatDateTime(msg.created_at),
+        editIcon: editIconSvg,
+        deleteIcon: deleteIconSvg
+      })
     )
     .join('');
 
-  content.innerHTML = `
-    <div class="card border-0 shadow-sm admin-section-card">
-      <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h3 class="h5 mb-0">Messages</h3>
-          <button class="btn btn-sm btn-primary" type="button" id="open-mass-message-form-btn">Create Message</button>
-        </div>
-        <div class="admin-table-wrap table-responsive">
-          <table class="table table-sm align-middle">
-            <thead><tr><th>Title</th><th>Message</th><th>Created</th><th>Actions</th></tr></thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <div class="card border-0 shadow-sm d-none" id="mass-message-form-panel">
-      <div class="card-body">
-        <h3 class="h5 mb-3">Create / Edit Message</h3>
-        <form id="mass-message-form" class="row g-3">
-          <input type="hidden" name="id" />
-          <div class="col-12">
-            <label class="form-label">Title</label>
-            <input class="form-control" name="title" required />
-          </div>
-          <div class="col-12">
-            <label class="form-label">Message</label>
-            <textarea class="form-control" name="content_html" rows="4" required></textarea>
-          </div>
-          <div class="col-12 admin-inline-actions">
-            <button class="btn btn-primary" type="submit">Save</button>
-            <button class="btn btn-outline-secondary" type="button" id="close-mass-message-form-btn">Cancel</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  `;
+  content.innerHTML = template.replace('{{rows}}', rows);
 
   const massMessageFormPanel = content.querySelector('#mass-message-form-panel');
   enableTableColumnFilters(content);
@@ -81,10 +39,6 @@ export const renderMassMessagesSection = (content) => {
     massMessageFormPanel.classList.remove('d-none');
   };
 
-  const closeMassMessageForm = () => {
-    massMessageFormPanel.classList.add('d-none');
-  };
-
   openMassMessageFormButton.addEventListener('click', () => {
     form.reset();
     form.elements.id.value = '';
@@ -92,9 +46,7 @@ export const renderMassMessagesSection = (content) => {
   });
 
   closeMassMessageFormButton.addEventListener('click', () => {
-    form.reset();
-    form.elements.id.value = '';
-    closeMassMessageForm();
+    renderMassMessagesSection(content);
   });
 
   form.addEventListener('submit', async (event) => {

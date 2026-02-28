@@ -1,41 +1,28 @@
 import { navigateTo } from '../../../router/router.js';
 import { notifyError, notifyInfo } from '../../../components/toast/toast.js';
 import {
-  getEffectiveUserId,
   getImpersonatedUserId,
   isImpersonating,
   startImpersonation,
   stopImpersonation
 } from '../../../features/auth/auth.js';
 import { state, getUserDisplay } from '../adminState.js';
+import template from './impersonation.html?raw';
+import './impersonation.css';
 
 export const renderImpersonationSection = (content) => {
-  const options = state.profiles
-    .map((profile) => `<option value="${profile.user_id}">${getUserDisplay(profile)}</option>`)
-    .join('');
+  const currentMode = isImpersonating() ? `Viewing as ${getImpersonatedUserId()}` : 'Admin';
+  content.innerHTML = template
+    .replace('{{options}}', '')
+    .replace('{{currentMode}}', currentMode);
 
-  content.innerHTML = `
-    <div class="card border-0 shadow-sm admin-section-card">
-      <div class="card-body">
-        <h3 class="h5 mb-3">Login as Normal Registered User</h3>
-        <p class="admin-muted">Pick a user to view the app exactly like a normal user. You can return back as admin from header.</p>
-        <form id="impersonation-form" class="row g-3">
-          <div class="col-12 col-md-8">
-            <label class="form-label">Registered User</label>
-            <select class="form-select" name="impersonated_user_id" required>
-              <option value="">Select user...</option>
-              ${options}
-            </select>
-          </div>
-          <div class="col-12 admin-inline-actions">
-            <button class="btn btn-primary" type="submit">View as User</button>
-            <button class="btn btn-outline-secondary" type="button" id="stop-impersonation-btn">Return as Admin</button>
-          </div>
-        </form>
-        <p class="mt-3 mb-0 admin-muted">Current mode: ${isImpersonating() ? `Viewing as ${getImpersonatedUserId()}` : 'Admin'}</p>
-      </div>
-    </div>
-  `;
+  const select = content.querySelector('select[name="impersonated_user_id"]');
+  state.profiles.forEach((profile) => {
+    const optionNode = document.createElement('option');
+    optionNode.value = profile.user_id;
+    optionNode.textContent = getUserDisplay(profile);
+    select?.appendChild(optionNode);
+  });
 
   const form = content.querySelector('#impersonation-form');
   const stopButton = content.querySelector('#stop-impersonation-btn');

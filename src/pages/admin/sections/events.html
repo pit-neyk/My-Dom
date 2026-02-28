@@ -1,0 +1,35 @@
+<div class="card border-0 shadow-sm admin-section-card">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3 class="h5 mb-0">Events</h3>
+      <button class="btn btn-sm btn-primary" type="button" id="open-event-form-btn">Create Event</button>
+    </div>
+    <div class="admin-table-wrap table-responsive">
+      <table class="table table-sm align-middle">
+        <thead><tr><th>Title</th><th>Description</th><th>Created</th><th>Actions</th></tr></thead>
+        <tbody>{{rows}}</tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm d-none" id="event-form-panel">
+  <div class="card-body">
+    <h3 class="h5 mb-3">Create / Edit Event</h3>
+    <form id="event-form" class="row g-3">
+      <input type="hidden" name="id" />
+      <div class="col-12">
+        <label class="form-label">Title</label>
+        <input class="form-control" name="title" required />
+      </div>
+      <div class="col-12">
+        <label class="form-label">Description</label>
+        <textarea class="form-control" name="description" rows="3" required></textarea>
+      </div>
+      <div class="col-12 admin-inline-actions">
+        <button class="btn btn-primary" type="submit">Save</button>
+        <button class="btn btn-outline-secondary" type="button" id="close-event-form-btn">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>

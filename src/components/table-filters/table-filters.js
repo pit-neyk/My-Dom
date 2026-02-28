@@ -88,7 +88,11 @@ export const enableTableColumnFilters = (root, options = {}) => {
 
       if (rowsToDisplay.length === 0) {
         const emptyRow = document.createElement('tr');
-        emptyRow.innerHTML = `<td colspan="${headerRow.cells.length}" class="text-secondary">No matching rows found.</td>`;
+        const emptyCell = document.createElement('td');
+        emptyCell.colSpan = headerRow.cells.length;
+        emptyCell.className = 'text-secondary';
+        emptyCell.textContent = 'No matching rows found.';
+        emptyRow.appendChild(emptyCell);
         tbody.appendChild(emptyRow);
       } else {
         rowsToDisplay.forEach((row) => tbody.appendChild(row));

@@ -1,9 +1,18 @@
 import './dashboard.css';
+import template from './dashboard.html?raw';
+import summaryTemplate from './summary.html?raw';
+import objectEmptyCardTemplate from './object-empty-card.html?raw';
+import objectCardTemplate from './object-card.html?raw';
+import obligationRowTemplate from './obligation-row.html?raw';
+import statusPaidTemplate from './status-paid.html?raw';
+import statusPendingTemplate from './status-pending.html?raw';
+import actionEmptyTemplate from './action-empty.html?raw';
+import actionPayTemplate from './action-pay.html?raw';
 import { isAuthenticated, isAdmin, isImpersonating, getEffectiveUserId } from '../../features/auth/auth.js';
 import { navigateTo } from '../../router/router.js';
 import { supabase } from '../../lib/supabase.js';
-import { enableTableColumnFilters } from '../../components/table-filters/table-filters.js';
 import { notifyError, notifyInfo } from '../../components/toast/toast.js';
+import { fillTemplate } from '../../lib/template.js';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April',
@@ -76,28 +85,10 @@ const buildSummaryHTML = (financials, objects) => {
     }
   }
 
-  return `
-    <div class="row g-3 mb-5">
-      <div class="col-12 col-md-6">
-        <div class="card border-0 shadow-sm h-100 dashboard-summary-card">
-          <div class="card-body">
-            <p class="summary-label text-success">Collected</p>
-            <p class="summary-amount text-success mb-0">${formatCurrency(collected)}</p>
-          </div>
-        </div>
-      </div>
-      <div class="col-12 col-md-6">
-        <div class="card border-0 shadow-sm h-100 dashboard-summary-card">
-          <div class="card-body">
-            <p class="summary-label text-danger">Still Due</p>
-            <p class="summary-amount text-danger mb-0">${formatCurrency(due)}</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-
-  enableTableColumnFilters(container, { skipColumns: ['action'] });
+  return fillTemplate(summaryTemplate, {
+    collected: formatCurrency(collected),
+    due: formatCurrency(due)
+  });
 };
 
 const buildObjectObligationsHTML = (obj) => {
@@ -106,69 +97,63 @@ const buildObjectObligationsHTML = (obj) => {
   );
 
   if (!obligations.length) {
-    return `
-      <div class="card border-0 shadow-sm mb-4">
-        <div class="card-header bg-white fw-semibold">Unit ${obj.number} &mdash; Floor ${obj.floor}</div>
-        <div class="card-body text-secondary">No obligations registered for this unit.</div>
-      </div>
-    `;
+    return fillTemplate(objectEmptyCardTemplate, {
+      number: obj.number,
+      floor: obj.floor
+    });
   }
 
   const rows = obligations.map((ob) => {
     const payment = ob.payments?.[0] ?? null;
     const isPaid = payment?.status === 'paid';
 
-    const statusBadge = isPaid
-      ? `<span class="badge bg-success">Paid</span>`
-      : `<span class="badge bg-warning text-dark">Pending</span>`;
-
+    const statusBadge = isPaid ? statusPaidTemplate : statusPendingTemplate;
     const actionCell = isPaid
-      ? `<span class="text-secondary small">—</span>`
-      : `<button
-           type="button"
-           class="btn btn-sm btn-primary pay-btn"
-           data-obligation-id="${ob.id}"
-           data-payment-id="${payment?.id ?? ''}"
-         >Pay</button>`;
+      ? actionEmptyTemplate
+      : fillTemplate(actionPayTemplate, {
+          obligationId: ob.id,
+          paymentId: payment?.id ?? ''
+        });
 
-    return `
-      <tr>
-        <td>${MONTH_NAMES[ob.month - 1]} ${ob.year}</td>
-        <td class="text-end">${formatCurrency(ob.rate)}</td>
-        <td class="text-center">${statusBadge}</td>
-        <td class="text-center">${actionCell}</td>
-      </tr>
-    `;
+    return fillTemplate(obligationRowTemplate, {
+      period: `${MONTH_NAMES[ob.month - 1]} ${ob.year}`,
+      amount: formatCurrency(ob.rate),
+      statusBadge,
+      actionCell
+    });
   }).join('');
 
-  return `
-    <div class="card border-0 shadow-sm mb-4">
-      <div class="card-header bg-white fw-semibold">
-        Unit ${obj.number} &mdash; Floor ${obj.floor}
-      </div>
-      <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
-          <thead class="table-light">
-            <tr>
-              <th>Period</th>
-              <th class="text-end">Amount</th>
-              <th class="text-center">Status</th>
-              <th class="text-center">Action</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-    </div>
-  `;
+  return fillTemplate(objectCardTemplate, {
+    number: obj.number,
+    floor: obj.floor,
+    rows
+  });
 };
 
 const buildObligationsSectionHTML = (objects) => {
-  if (!objects.length) {
-    return `<p class="text-secondary">No properties are assigned to your account.</p>`;
-  }
-
   return objects.map(buildObjectObligationsHTML).join('');
+};
+
+const renderDashboardLoadingState = (slot) => {
+  slot.textContent = '';
+  const loadingWrap = document.createElement('div');
+  loadingWrap.className = 'd-flex align-items-center gap-2 text-secondary py-5 justify-content-center';
+  const spinner = document.createElement('div');
+  spinner.className = 'spinner-border spinner-border-sm';
+  spinner.setAttribute('role', 'status');
+  spinner.setAttribute('aria-hidden', 'true');
+  const text = document.createElement('span');
+  text.textContent = 'Loading dashboard…';
+  loadingWrap.append(spinner, text);
+  slot.appendChild(loadingWrap);
+};
+
+const renderDashboardMessage = (slot, message) => {
+  slot.textContent = '';
+  const messageNode = document.createElement('p');
+  messageNode.className = 'text-secondary mb-0';
+  messageNode.textContent = message;
+  slot.appendChild(messageNode);
 };
 
 // ─── Pay button handler ───────────────────────────────────────────────────────
@@ -217,14 +202,9 @@ export const renderDashboardPage = async (container) => {
     return;
   }
 
-  container.innerHTML = `
-    <div class="dashboard-page">
-      <div class="d-flex align-items-center gap-2 text-secondary py-5 justify-content-center">
-        <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
-        <span>Loading dashboard…</span>
-      </div>
-    </div>
-  `;
+  container.innerHTML = template;
+  const stateSlot = container.querySelector('#dashboard-state');
+  renderDashboardLoadingState(stateSlot);
 
   const userId = getEffectiveUserId();
 
@@ -238,11 +218,7 @@ export const renderDashboardPage = async (container) => {
 
   if (objectsError) {
     notifyError(`Failed to load your obligations: ${objectsError.message}`);
-    container.innerHTML = `
-      <div class="dashboard-page">
-        <p class="text-secondary mb-0">Unable to load obligations right now.</p>
-      </div>
-    `;
+    renderDashboardMessage(stateSlot, 'Unable to load obligations right now.');
     return;
   }
 
@@ -253,15 +229,25 @@ export const renderDashboardPage = async (container) => {
   const safeObjects = objects ?? [];
   const safeFinancials = financialsError ? null : financials;
 
-  container.innerHTML = `
-    <div class="dashboard-page">
-      ${buildSummaryHTML(safeFinancials, safeObjects)}
-      <h2 class="h5 mb-3">Your Obligations</h2>
-      <div id="obligations-container">
-        ${buildObligationsSectionHTML(safeObjects)}
-      </div>
-    </div>
-  `;
+  stateSlot.innerHTML = buildSummaryHTML(safeFinancials, safeObjects);
+
+  const obligationsTitle = document.createElement('h2');
+  obligationsTitle.className = 'h5 mb-3';
+  obligationsTitle.textContent = 'Your Obligations';
+  stateSlot.appendChild(obligationsTitle);
+
+  const obligationsContainer = document.createElement('div');
+  obligationsContainer.id = 'obligations-container';
+  obligationsContainer.innerHTML = buildObligationsSectionHTML(safeObjects);
+
+  if (!safeObjects.length) {
+    const emptyText = document.createElement('p');
+    emptyText.className = 'text-secondary';
+    emptyText.textContent = 'No properties are assigned to your account.';
+    obligationsContainer.appendChild(emptyText);
+  }
+
+  stateSlot.appendChild(obligationsContainer);
 
   attachPayHandlers(container, userId, () => renderDashboardPage(container));
 };
