@@ -92,6 +92,26 @@ export const renderAdminHomePage = async (container) => {
   const propertiesById = new Map(safeProperties.map((property) => [property.id, property]));
   const propertiesWithPendingSet = new Set(pendingObligations.map((obligation) => obligation.independent_object_id));
 
+  const propertyFinancials = new Map(
+    safeProperties.map((property) => [property.id, { paid: 0, due: 0 }])
+  );
+
+  safeObligations.forEach((obligation) => {
+    const propertyId = obligation.independent_object_id;
+    const rate = Number(obligation.rate ?? 0);
+
+    if (!propertyFinancials.has(propertyId)) {
+      propertyFinancials.set(propertyId, { paid: 0, due: 0 });
+    }
+
+    const current = propertyFinancials.get(propertyId);
+    if (isObligationPaid(obligation)) {
+      current.paid += rate;
+    } else {
+      current.due += rate;
+    }
+  });
+
   const pendingRows = pendingObligations
     .map((obligation) => {
       const objectId = obligation.independent_object_id;
@@ -123,6 +143,7 @@ export const renderAdminHomePage = async (container) => {
 
   const selectAllCheckbox = container.querySelector('#admin-select-all-obligations');
   const paySelectedButton = container.querySelector('#admin-pay-selected-btn');
+  const selectedTotalLabel = container.querySelector('#admin-selected-total');
 
   const getEligibleCheckboxes = () => Array.from(
     container.querySelectorAll('[data-obligation-checkbox]:not(:disabled)')
@@ -133,6 +154,7 @@ export const renderAdminHomePage = async (container) => {
   const updateSelectionControls = () => {
     const eligible = getEligibleCheckboxes();
     const checked = getCheckedCheckboxes();
+    const selectedTotal = checked.reduce((sum, checkbox) => sum + Number(checkbox.dataset.obligationAmount ?? 0), 0);
 
     const hasEligible = eligible.length > 0;
     selectAllCheckbox.disabled = !hasEligible;
@@ -140,22 +162,22 @@ export const renderAdminHomePage = async (container) => {
     selectAllCheckbox.indeterminate = checked.length > 0 && checked.length < eligible.length;
 
     paySelectedButton.disabled = checked.length === 0;
+    selectedTotalLabel.textContent = `Selected total: ${formatCurrency(selectedTotal)}`;
   };
 
   const renderRows = (filter = 'all') => {
-    const filteredRows = pendingRows.filter((row) => {
-      if (filter === 'debt') {
-        return true;
-      }
+    const clearRows = safeProperties
+      .filter((property) => !propertiesWithPendingSet.has(property.id))
+      .map((property) => ({
+        propertyId: property.id,
+        propertyNumber: property.number,
+        floor: property.floor,
+        paidAmount: propertyFinancials.get(property.id)?.paid ?? 0,
+        dueAmount: propertyFinancials.get(property.id)?.due ?? 0
+      }))
+      .sort((a, b) => String(a.propertyNumber).localeCompare(String(b.propertyNumber), undefined, { numeric: true, sensitivity: 'base' }));
 
-      if (filter === 'clear') {
-        return false;
-      }
-
-      return true;
-    });
-
-    const rows = filteredRows
+    const pendingRowsHtml = pendingRows
       .map(
         (obligation) => `
         <tr>
@@ -164,6 +186,7 @@ export const renderAdminHomePage = async (container) => {
               class="form-check-input"
               type="checkbox"
               data-obligation-checkbox="${obligation.obligationId}"
+              data-obligation-amount="${obligation.rate}"
               aria-label="Select obligation ${obligation.propertyNumber} ${MONTH_NAMES[(obligation.month ?? 1) - 1] ?? ''} ${obligation.year ?? ''}"
             />
           </td>
@@ -179,8 +202,39 @@ export const renderAdminHomePage = async (container) => {
       )
       .join('');
 
+    const clearRowsHtml = clearRows
+      .map(
+        (property) => `
+        <tr>
+          <td class="text-center">
+            <input class="form-check-input" type="checkbox" disabled />
+          </td>
+          <td>${property.propertyNumber}</td>
+          <td>${property.floor}</td>
+          <td>-</td>
+          <td class="text-end">
+            <span class="d-block">Paid: ${formatCurrency(property.paidAmount)}</span>
+            <span class="d-block text-secondary small">Left: ${formatCurrency(property.dueAmount)}</span>
+          </td>
+          <td>
+            <span class="badge bg-success-subtle text-success-emphasis">Paid</span>
+          </td>
+        </tr>
+      `
+      )
+      .join('');
+
+    let rows = '';
+    if (filter === 'debt') {
+      rows = pendingRowsHtml;
+    } else if (filter === 'clear') {
+      rows = clearRowsHtml;
+    } else {
+      rows = `${pendingRowsHtml}${clearRowsHtml}`;
+    }
+
     container.querySelector('#admin-properties-overview').innerHTML =
-      rows || '<tr><td colspan="6" class="text-secondary">No pending obligations found for the selected filter.</td></tr>';
+      rows || '<tr><td colspan="6" class="text-secondary">No properties found for the selected filter.</td></tr>';
 
     container.querySelectorAll('[data-obligation-checkbox]').forEach((checkbox) => {
       checkbox.addEventListener('change', updateSelectionControls);
