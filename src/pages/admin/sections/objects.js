@@ -68,6 +68,67 @@ const isMissingContactPeriodColumnsError = (error) => {
   return errorText.includes('start_date') || errorText.includes('end_date');
 };
 
+const isMissingPropertyExtendedColumnsError = (error) => {
+  if (error?.code !== 'PGRST204' && error?.code !== '42703') {
+    return false;
+  }
+
+  const errorText = `${error?.message ?? ''} ${error?.details ?? ''} ${error?.hint ?? ''}`.toLowerCase();
+  return errorText.includes('pets_count') || errorText.includes('property_type') || errorText.includes('ideal_parts');
+};
+
+const stripExtendedPropertyFields = (payload) => {
+  const { pets_count, property_type, ideal_parts, ...legacyPayload } = payload;
+  return legacyPayload;
+};
+
+const savePropertyWithFallback = async (propertyId, savePayload) => {
+  if (propertyId) {
+    const updateRes = await supabase.from('properties').update(savePayload).eq('id', propertyId);
+
+    if (!updateRes.error) {
+      return { error: null, id: propertyId, usedExtendedColumns: true };
+    }
+
+    if (!isMissingPropertyExtendedColumnsError(updateRes.error)) {
+      return { error: updateRes.error, id: propertyId, usedExtendedColumns: true };
+    }
+
+    const retryRes = await supabase
+      .from('properties')
+      .update(stripExtendedPropertyFields(savePayload))
+      .eq('id', propertyId);
+
+    return {
+      error: retryRes.error ?? null,
+      id: propertyId,
+      usedExtendedColumns: false
+    };
+  }
+
+  const insertRes = await supabase.from('properties').insert(savePayload).select('id').single();
+
+  if (!insertRes.error) {
+    return { error: null, id: insertRes.data?.id ?? '', usedExtendedColumns: true };
+  }
+
+  if (!isMissingPropertyExtendedColumnsError(insertRes.error)) {
+    return { error: insertRes.error, id: '', usedExtendedColumns: true };
+  }
+
+  const retryRes = await supabase
+    .from('properties')
+    .insert(stripExtendedPropertyFields(savePayload))
+    .select('id')
+    .single();
+
+  return {
+    error: retryRes.error ?? null,
+    id: retryRes.data?.id ?? '',
+    usedExtendedColumns: false
+  };
+};
+
 const refreshObjectsAndProfilesData = async () => {
   const [objectsRes, profilesRes] = await Promise.all([
     supabase.from('properties').select('*').order('number'),
@@ -107,34 +168,56 @@ const getPropertyContacts = (propertyId) =>
 const getContactTypeLabel = (type) =>
   CONTACT_TYPE_OPTIONS.find((option) => option.value === type)?.label ?? type;
 
+const escapeHtml = (value) =>
+  String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const renderContactTypeOptionsMarkup = (selectedValue) =>
+  CONTACT_TYPE_OPTIONS
+    .map((option) => {
+      const selected = option.value === selectedValue ? ' selected' : '';
+      return `<option value="${escapeHtml(option.value)}"${selected}>${escapeHtml(option.label)}</option>`;
+    })
+    .join('');
+
 const getContactFullName = (contact) =>
   [contact.first_name, contact.middle_name, contact.family_name].filter(Boolean).join(' ');
 
 const getPropertyOwnerName = (property) => {
+  const propertyContacts = getPropertyContacts(property.id);
+  const ownerContacts = propertyContacts.filter((contact) => contact.contact_type === 'owner');
+
+  if (propertyContacts.length > 0) {
+    if (ownerContacts.length === 0) {
+      return '-';
+    }
+
+    const prioritizedOwnerContact = [...ownerContacts].sort((left, right) => {
+      const leftOpenEnded = !left.end_date;
+      const rightOpenEnded = !right.end_date;
+
+      if (leftOpenEnded !== rightOpenEnded) {
+        return leftOpenEnded ? -1 : 1;
+      }
+
+      const leftStartDate = left.start_date ?? '';
+      const rightStartDate = right.start_date ?? '';
+      return rightStartDate.localeCompare(leftStartDate);
+    })[0];
+
+    return getContactFullName(prioritizedOwnerContact) || prioritizedOwnerContact.email || prioritizedOwnerContact.phone || '-';
+  }
+
   const ownerProfile = state.profiles.find((profile) => profile.user_id === property.owner_user_id);
   if (ownerProfile) {
     return getUserDisplay(ownerProfile);
   }
 
-  const ownerContacts = getPropertyContacts(property.id).filter((contact) => contact.contact_type === 'owner');
-  if (ownerContacts.length === 0) {
-    return '-';
-  }
-
-  const prioritizedOwnerContact = [...ownerContacts].sort((left, right) => {
-    const leftOpenEnded = !left.end_date;
-    const rightOpenEnded = !right.end_date;
-
-    if (leftOpenEnded !== rightOpenEnded) {
-      return leftOpenEnded ? -1 : 1;
-    }
-
-    const leftStartDate = left.start_date ?? '';
-    const rightStartDate = right.start_date ?? '';
-    return rightStartDate.localeCompare(leftStartDate);
-  })[0];
-
-  return getContactFullName(prioritizedOwnerContact) || prioritizedOwnerContact.email || prioritizedOwnerContact.phone || '-';
+  return '-';
 };
 
 const toPropertyContactPayload = (contactPayload, propertyId, includePeriod = true) => {
@@ -333,9 +416,7 @@ export const renderObjectsSection = (content, options = {}) => {
   let activePropertyId = '';
   let draftPropertyContacts = [];
   let draftContactCounter = 0;
-  let propertyContactFormMode = 'add';
-  let editingPropertyContactId = '';
-  let editingDraftContactId = '';
+  let editingInlineContactId = '';
 
   content.prepend(propertyFormPanel);
 
@@ -396,9 +477,6 @@ export const renderObjectsSection = (content, options = {}) => {
     if (!propertyContactForm) return;
     propertyContactForm.reset();
     propertyContactForm.elements.contact_type.value = CONTACT_TYPE_OPTIONS[0].value;
-    propertyContactFormMode = 'add';
-    editingPropertyContactId = '';
-    editingDraftContactId = '';
   };
 
   const openPropertyContactForm = () => {
@@ -413,19 +491,6 @@ export const renderObjectsSection = (content, options = {}) => {
     resetPropertyContactForm();
   };
 
-  const populatePropertyContactForm = (contact) => {
-    if (!propertyContactForm) return;
-
-    propertyContactForm.elements.first_name.value = contact.first_name ?? '';
-    propertyContactForm.elements.family_name.value = contact.family_name ?? '';
-    propertyContactForm.elements.email.value = contact.email ?? '';
-    propertyContactForm.elements.phone.value = contact.phone ?? '';
-    propertyContactForm.elements.contact_type.value = contact.contact_type ?? CONTACT_TYPE_OPTIONS[0].value;
-    propertyContactForm.elements.start_date.value = contact.start_date ?? '';
-    propertyContactForm.elements.end_date.value = contact.end_date ?? '';
-    propertyContactForm.classList.remove('d-none');
-  };
-
   const renderPropertyContactsList = (propertyId) => {
     if (!propertyContactsEnabled || !propertyContactsList) return;
 
@@ -437,6 +502,55 @@ export const renderObjectsSection = (content, options = {}) => {
       .map((contact) => {
         const contactId = isDraftMode ? contact.temp_id : contact.id;
         const contactName = getContactFullName(contact) || contact.first_name || '';
+        const isEditing = editingInlineContactId === contactId;
+
+        if (isEditing) {
+          return `
+            <article class="card border admin-section-card mb-0">
+              <div class="card-body py-3">
+                <form class="row g-2" data-inline-contact-form="${escapeHtml(contactId)}">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="h6 mb-0">Contact</h5>
+                    <div class="admin-inline-actions">
+                      <button class="btn btn-sm btn-primary" type="button" data-save-inline-contact="${escapeHtml(contactId)}">Save</button>
+                      <button class="btn btn-sm btn-outline-secondary" type="button" data-cancel-inline-contact="${escapeHtml(contactId)}">Cancel</button>
+                    </div>
+                  </div>
+                  <div class="col-12 col-md-6">
+                    <label class="text-secondary small d-block">Name</label>
+                    <input class="form-control form-control-sm" name="first_name" required value="${escapeHtml(contact.first_name)}" />
+                  </div>
+                  <div class="col-12 col-md-6">
+                    <label class="text-secondary small d-block">Family name</label>
+                    <input class="form-control form-control-sm" name="family_name" value="${escapeHtml(contact.family_name)}" />
+                  </div>
+                  <div class="col-12 col-md-6">
+                    <label class="text-secondary small d-block">Email</label>
+                    <input class="form-control form-control-sm" name="email" type="email" value="${escapeHtml(contact.email)}" />
+                  </div>
+                  <div class="col-12 col-md-6">
+                    <label class="text-secondary small d-block">Phone</label>
+                    <input class="form-control form-control-sm" name="phone" value="${escapeHtml(contact.phone)}" />
+                  </div>
+                  <div class="col-12 col-md-4">
+                    <label class="text-secondary small d-block">Type</label>
+                    <select class="form-select form-select-sm" name="contact_type" required>
+                      ${renderContactTypeOptionsMarkup(contact.contact_type ?? CONTACT_TYPE_OPTIONS[0].value)}
+                    </select>
+                  </div>
+                  <div class="col-12 col-md-4">
+                    <label class="text-secondary small d-block">Start period</label>
+                    <input class="form-control form-control-sm" name="start_date" type="date" value="${escapeHtml(contact.start_date)}" />
+                  </div>
+                  <div class="col-12 col-md-4">
+                    <label class="text-secondary small d-block">End period</label>
+                    <input class="form-control form-control-sm" name="end_date" type="date" value="${escapeHtml(contact.end_date)}" />
+                  </div>
+                </form>
+              </div>
+            </article>
+          `;
+        }
 
         return fillTemplate(contactCardTemplate, {
           contactId,
@@ -455,6 +569,80 @@ export const renderObjectsSection = (content, options = {}) => {
       .join('');
 
     propertyContactsList.innerHTML = contactsRows || fillTemplate(emptySecondaryTextTemplate, { text: 'No contacts added.' });
+
+    propertyContactsList.querySelectorAll('[data-cancel-inline-contact]').forEach((button) => {
+      button.addEventListener('click', () => {
+        if (editingInlineContactId !== button.dataset.cancelInlineContact) {
+          return;
+        }
+
+        editingInlineContactId = '';
+        renderPropertyContactsList(resolvedPropertyId);
+      });
+    });
+
+    propertyContactsList.querySelectorAll('[data-save-inline-contact]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const inlineContactId = button.dataset.saveInlineContact;
+        const inlineForm = propertyContactsList.querySelector(`[data-inline-contact-form="${CSS.escape(inlineContactId)}"]`);
+        if (!inlineForm) {
+          return;
+        }
+
+        if (!inlineForm.reportValidity()) {
+          return;
+        }
+
+        const contactPayload = Object.fromEntries(new FormData(inlineForm).entries());
+
+        if (isDraftMode) {
+          draftPropertyContacts = draftPropertyContacts.map((contact) => {
+            if (contact.temp_id !== inlineContactId) {
+              return contact;
+            }
+
+            return {
+              ...contact,
+              contact_type: contactPayload.contact_type,
+              first_name: contactPayload.first_name,
+              family_name: contactPayload.family_name || null,
+              email: contactPayload.email || null,
+              phone: contactPayload.phone || null,
+              start_date: contactPayload.start_date || null,
+              end_date: contactPayload.end_date || null
+            };
+          });
+
+          editingInlineContactId = '';
+          notifyInfo('Contact updated.');
+          renderPropertyContactsList('');
+          return;
+        }
+
+        const contactUpdateRes = await updatePropertyContact(inlineContactId, contactPayload, resolvedPropertyId);
+
+        if (contactUpdateRes.error) {
+          notifyError(contactUpdateRes.error.message || 'Failed to update contact.');
+          return;
+        }
+
+        if (!contactUpdateRes.usedPeriodColumns) {
+          notifyInfo('Contact updated without start/end period because your database schema is missing those columns.');
+        }
+
+        editingInlineContactId = '';
+        notifyInfo('Contact updated.');
+
+        try {
+          await refreshObjectsAndProfilesData();
+        } catch (refreshError) {
+          notifyError(refreshError.message || 'Contact updated, but refresh failed. Please reopen the section.');
+          return;
+        }
+
+        renderObjectsSection(content, { selectedPropertyId: resolvedPropertyId, sortBy });
+      });
+    });
 
     propertyContactsList.querySelectorAll('[data-delete-property-contact]').forEach((button) => {
       button.addEventListener('click', async () => {
@@ -488,26 +676,9 @@ export const renderObjectsSection = (content, options = {}) => {
 
     propertyContactsList.querySelectorAll('[data-edit-property-contact]').forEach((button) => {
       button.addEventListener('click', () => {
-        if (!propertyContactForm) return;
-
-        if (isDraftMode) {
-          const draftContact = draftPropertyContacts.find((contact) => contact.temp_id === button.dataset.editPropertyContact);
-          if (!draftContact) return;
-
-          propertyContactFormMode = 'edit';
-          editingDraftContactId = draftContact.temp_id;
-          editingPropertyContactId = '';
-          populatePropertyContactForm(draftContact);
-          return;
-        }
-
-        const existingContact = getPropertyContacts(resolvedPropertyId).find((contact) => contact.id === button.dataset.editPropertyContact);
-        if (!existingContact) return;
-
-        propertyContactFormMode = 'edit';
-        editingPropertyContactId = existingContact.id;
-        editingDraftContactId = '';
-        populatePropertyContactForm(existingContact);
+        editingInlineContactId = button.dataset.editPropertyContact;
+        closePropertyContactForm();
+        renderPropertyContactsList(resolvedPropertyId);
       });
     });
   };
@@ -516,6 +687,7 @@ export const renderObjectsSection = (content, options = {}) => {
     if (!propertyContactsEnabled || !propertyContactsPanel || !propertyContactsTitle) return;
 
     activePropertyId = property.id;
+    editingInlineContactId = '';
     propertyContactsTitle.textContent = `Contacts for ${property.number}`;
     propertyContactsPanel.classList.remove('d-none');
     closePropertyContactForm();
@@ -526,6 +698,7 @@ export const renderObjectsSection = (content, options = {}) => {
     if (!propertyContactsEnabled || !propertyContactsPanel || !propertyContactsTitle) return;
 
     activePropertyId = '';
+    editingInlineContactId = '';
     propertyContactsTitle.textContent = 'Contacts for new property';
     propertyContactsPanel.classList.remove('d-none');
     closePropertyContactForm();
@@ -536,6 +709,7 @@ export const renderObjectsSection = (content, options = {}) => {
     if (!propertyContactsEnabled || !propertyContactsPanel || !propertyContactsList) return;
 
     activePropertyId = '';
+    editingInlineContactId = '';
     propertyContactsPanel.classList.add('d-none');
     closePropertyContactForm();
     propertyContactsList.innerHTML = '';
@@ -609,21 +783,17 @@ export const renderObjectsSection = (content, options = {}) => {
       ideal_parts: payload.ideal_parts === '' ? null : Number(payload.ideal_parts)
     };
 
-    let savedPropertyId = propertyId;
-    let error = null;
-
-    if (propertyId) {
-      const updateRes = await supabase.from('properties').update(savePayload).eq('id', propertyId);
-      error = updateRes.error;
-    } else {
-      const insertRes = await supabase.from('properties').insert(savePayload).select('id').single();
-      error = insertRes.error;
-      savedPropertyId = insertRes.data?.id ?? '';
-    }
+    const propertySaveRes = await savePropertyWithFallback(propertyId, savePayload);
+    const error = propertySaveRes.error;
+    const savedPropertyId = propertySaveRes.id || propertyId;
 
     if (error) {
       notifyError(error.message || 'Failed to save property.');
       return;
+    }
+
+    if (!propertySaveRes.usedExtendedColumns) {
+      notifyInfo('Property saved without some extended fields because your database schema is missing newer columns.');
     }
 
     if (!propertyId && propertyContactsEnabled && draftPropertyContacts.length > 0) {
@@ -657,30 +827,6 @@ export const renderObjectsSection = (content, options = {}) => {
       const contactPayload = Object.fromEntries(new FormData(propertyContactForm).entries());
 
       if (!activePropertyId) {
-        if (propertyContactFormMode === 'edit' && editingDraftContactId) {
-          draftPropertyContacts = draftPropertyContacts.map((contact) => {
-            if (contact.temp_id !== editingDraftContactId) {
-              return contact;
-            }
-
-            return {
-              ...contact,
-              contact_type: contactPayload.contact_type,
-              first_name: contactPayload.first_name,
-              family_name: contactPayload.family_name || null,
-              email: contactPayload.email || null,
-              phone: contactPayload.phone || null,
-              start_date: contactPayload.start_date || null,
-              end_date: contactPayload.end_date || null
-            };
-          });
-
-          notifyInfo('Contact updated.');
-          closePropertyContactForm();
-          renderPropertyContactsList('');
-          return;
-        }
-
         draftContactCounter += 1;
         draftPropertyContacts.push({
           temp_id: `draft-${draftContactCounter}`,
@@ -696,31 +842,6 @@ export const renderObjectsSection = (content, options = {}) => {
 
         closePropertyContactForm();
         renderPropertyContactsList('');
-        return;
-      }
-
-      if (propertyContactFormMode === 'edit' && editingPropertyContactId) {
-        const contactUpdateRes = await updatePropertyContact(editingPropertyContactId, contactPayload, activePropertyId);
-
-        if (contactUpdateRes.error) {
-          notifyError(contactUpdateRes.error.message || 'Failed to update contact.');
-          return;
-        }
-
-        if (!contactUpdateRes.usedPeriodColumns) {
-          notifyInfo('Contact updated without start/end period because your database schema is missing those columns.');
-        }
-
-        notifyInfo('Contact updated.');
-
-        try {
-          await refreshObjectsAndProfilesData();
-        } catch (refreshError) {
-          notifyError(refreshError.message || 'Contact updated, but refresh failed. Please reopen the section.');
-          return;
-        }
-
-        renderObjectsSection(content, { selectedPropertyId: activePropertyId, sortBy });
         return;
       }
 
