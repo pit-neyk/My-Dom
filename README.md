@@ -9,6 +9,19 @@ DOM is an application for Home Building Managers and people, living in a shared 
 	- `VITE_SUPABASE_ANON_KEY` (or `VITE_SUPABASE_PUBLISHABLE_KEY`)
 3. Run the app with `npm run dev`.
 
+## Netlify deploy setup
+
+For production deploys, Netlify must have the same frontend env vars available at build time:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY` (or `VITE_SUPABASE_PUBLISHABLE_KEY`)
+
+In Netlify:
+
+1. Open your site → **Site configuration** → **Environment variables**.
+2. Add the variables above with values from Supabase Project Settings → API.
+3. Trigger **Deploys → Trigger deploy → Deploy site** (or clear cache and deploy).
+
 ## Auth routes
 
 - `/register` - email/password registration

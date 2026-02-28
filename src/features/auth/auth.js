@@ -8,7 +8,7 @@ const ADMIN_IMPERSONATION_KEY = 'dom_admin_impersonation_user_id';
 let impersonatedUserId = localStorage.getItem(ADMIN_IMPERSONATION_KEY);
 
 const getConfigurationErrorMessage = () =>
-  'Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (or VITE_SUPABASE_PUBLISHABLE_KEY) in your .env file.';
+  'Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (or VITE_SUPABASE_PUBLISHABLE_KEY) in your environment (.env locally, Site configuration → Environment variables on Netlify), then redeploy.';
 
 const clearImpersonation = () => {
   impersonatedUserId = null;
