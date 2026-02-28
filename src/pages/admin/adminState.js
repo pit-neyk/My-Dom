@@ -15,11 +15,10 @@ export const createNonPersistentClient = () =>
 
 export const ADMIN_SECTIONS = [
   { id: 'objects', label: 'Properties' },
-  { id: 'owners', label: 'Owners & Contacts' },
   { id: 'obligations', label: 'Payment Obligations' },
   { id: 'events', label: 'Events' },
   { id: 'documents', label: 'Documents' },
-  { id: 'messages', label: 'Mass Messages' },
+  { id: 'messages', label: 'Messages' },
   { id: 'impersonation', label: 'View As User' },
   { id: 'profile', label: 'My Profile' }
 ];
@@ -35,6 +34,8 @@ export const formatDateTime = (value) =>
 export const state = {
   objects: [],
   profiles: [],
+  propertyContacts: [],
+  propertyContactsEnabled: true,
   obligations: [],
   events: [],
   documents: [],
@@ -55,22 +56,19 @@ export const getOwnerOptions = () =>
     .map((profile) => `<option value="${profile.user_id}">${getUserDisplay(profile)}</option>`)
   ].join('');
 
+const isMissingPropertyContactsTableError = (error) =>
+  error?.code === 'PGRST205' || error?.code === '42P01' || error?.status === 404;
+
 export const loadInitialData = async () => {
   const [
     objectsRes,
     profilesRes,
-    obligationsRes,
     eventsRes,
     documentsRes,
     messagesRes
   ] = await Promise.all([
     supabase.from('properties').select('*').order('number'),
     supabase.from('profiles').select('*').order('full_name', { ascending: true, nullsFirst: false }),
-    supabase
-      .from('payment_obligations')
-      .select('id,year,month,rate,independent_object_id,properties(number),payments(id,status,date)')
-      .order('year', { ascending: false })
-      .order('month', { ascending: false }),
     supabase.from('events').select('*').order('created_at', { ascending: false }),
     supabase.from('documents').select('*').order('created_at', { ascending: false }),
     supabase.from('mass_messages').select('*').order('created_at', { ascending: false })
@@ -79,7 +77,6 @@ export const loadInitialData = async () => {
   const errors = [
     objectsRes.error,
     profilesRes.error,
-    obligationsRes.error,
     eventsRes.error,
     documentsRes.error,
     messagesRes.error
@@ -91,10 +88,38 @@ export const loadInitialData = async () => {
 
   state.objects = objectsRes.data ?? [];
   state.profiles = profilesRes.data ?? [];
-  state.obligations = obligationsRes.data ?? [];
   state.events = eventsRes.data ?? [];
   state.documents = documentsRes.data ?? [];
   state.messages = messagesRes.data ?? [];
+
+  const propertyContactsRes = await supabase.from('property_contacts').select('*').order('created_at', { ascending: true });
+
+  if (propertyContactsRes.error) {
+    if (isMissingPropertyContactsTableError(propertyContactsRes.error)) {
+      state.propertyContacts = [];
+      state.propertyContactsEnabled = false;
+      return;
+    }
+
+    throw propertyContactsRes.error;
+  }
+
+  state.propertyContacts = propertyContactsRes.data ?? [];
+  state.propertyContactsEnabled = true;
+};
+
+export const loadObligationsData = async () => {
+  const obligationsRes = await supabase
+    .from('payment_obligations')
+    .select('id,year,month,rate,independent_object_id,properties(number),payments(id,status,date)')
+    .order('year', { ascending: false })
+    .order('month', { ascending: false });
+
+  if (obligationsRes.error) {
+    throw obligationsRes.error;
+  }
+
+  state.obligations = obligationsRes.data ?? [];
 };
 
 export const getRequestedSectionId = () => {
@@ -103,7 +128,7 @@ export const getRequestedSectionId = () => {
 };
 
 export const renderNav = (container, onSelect, activeSectionId = 'objects') => {
-  container.innerHTML = ADMIN_SECTIONS
+  const sectionButtons = ADMIN_SECTIONS
     .map(
       (section) => `
         <button
@@ -116,6 +141,11 @@ export const renderNav = (container, onSelect, activeSectionId = 'objects') => {
       `
     )
     .join('');
+
+  container.innerHTML = `
+    <a class="btn btn-outline-secondary text-start admin-nav-btn" href="/admin" data-link="router">Admin Home</a>
+    ${sectionButtons}
+  `;
 
   container.querySelectorAll('[data-section-id]').forEach((button) => {
     button.addEventListener('click', () => {

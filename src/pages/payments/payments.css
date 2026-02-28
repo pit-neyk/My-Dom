@@ -1,0 +1,12 @@
+.payments-sidebar {
+  top: 1rem;
+}
+
+.payment-property-row {
+  cursor: pointer;
+}
+
+.payment-details-panel {
+  border-top: 1px solid var(--bs-border-color);
+  padding-top: 1rem;
+}

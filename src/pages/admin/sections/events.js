@@ -51,8 +51,8 @@ export const renderEventsSection = (content) => {
             <textarea class="form-control" name="description" rows="3" required></textarea>
           </div>
           <div class="col-12 admin-inline-actions">
-            <button class="btn btn-primary" type="submit">Save Event</button>
-            <button class="btn btn-outline-secondary" type="button" id="close-event-form-btn">Close</button>
+            <button class="btn btn-primary" type="submit">Save</button>
+            <button class="btn btn-outline-secondary" type="button" id="close-event-form-btn">Cancel</button>
           </div>
         </form>
       </div>

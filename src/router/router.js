@@ -61,9 +61,15 @@ export const renderCurrentRoute = () => {
 
 export const navigateTo = (path) => {
   const normalizedPath = normalizePath(path);
+  const targetUrl = new URL(normalizedPath, window.location.origin);
+  const currentUrl = new URL(window.location.href);
 
-  if (window.location.pathname !== normalizedPath) {
-    window.history.pushState({}, '', normalizedPath);
+  if (
+    currentUrl.pathname !== targetUrl.pathname ||
+    currentUrl.search !== targetUrl.search ||
+    currentUrl.hash !== targetUrl.hash
+  ) {
+    window.history.pushState({}, '', `${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`);
   }
 
   renderCurrentRoute();

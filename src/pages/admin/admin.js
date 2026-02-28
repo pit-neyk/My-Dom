@@ -10,7 +10,6 @@ import {
 import { notifyError, notifyInfo } from '../../components/toast/toast.js';
 import { loadInitialData, getRequestedSectionId, renderNav } from './adminState.js';
 import { renderObjectsSection } from './sections/objects.js';
-import { renderOwnersSection } from './sections/owners.js';
 import { renderObligationsSection } from './sections/obligations.js';
 import { renderEventsSection } from './sections/events.js';
 import { renderDocumentsSection } from './sections/documents.js';
@@ -18,16 +17,23 @@ import { renderMassMessagesSection } from './sections/messages.js';
 import { renderImpersonationSection } from './sections/impersonation.js';
 import { renderProfileSection } from './sections/profile.js';
 
-const renderSection = (sectionId, content) => {
+const ADMIN_LOAD_TIMEOUT_MS = 15000;
+
+const withTimeout = (promise, timeoutMs, timeoutMessage) =>
+  Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      window.setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
+    })
+  ]);
+
+const renderSection = async (sectionId, content) => {
   switch (sectionId) {
     case 'objects':
       renderObjectsSection(content);
       break;
-    case 'owners':
-      renderOwnersSection(content);
-      break;
     case 'obligations':
-      renderObligationsSection(content);
+      await renderObligationsSection(content);
       break;
     case 'events':
       renderEventsSection(content);
@@ -74,7 +80,11 @@ export const renderAdminPanelPage = async (container) => {
   `;
 
   try {
-    await loadInitialData();
+    await withTimeout(
+      loadInitialData(),
+      ADMIN_LOAD_TIMEOUT_MS,
+      'Loading admin data timed out. Please try again.'
+    );
   } catch (error) {
     notifyError(error.message || 'Failed to load admin data.');
     content.innerHTML = '<p class="text-secondary mb-0">Unable to load admin data.</p>';
@@ -82,8 +92,24 @@ export const renderAdminPanelPage = async (container) => {
   }
 
   const initialSectionId = getRequestedSectionId();
-  renderNav(nav, (sectionId) => renderSection(sectionId, content), initialSectionId);
-  renderSection(initialSectionId, content);
+  renderNav(
+    nav,
+    (sectionId) => {
+      renderSection(sectionId, content).catch((error) => {
+        notifyError(error.message || 'Failed to load admin section.');
+        content.innerHTML = '<p class="text-secondary mb-0">Unable to load this admin section.</p>';
+      });
+    },
+    initialSectionId
+  );
+
+  try {
+    await renderSection(initialSectionId, content);
+  } catch (error) {
+    notifyError(error.message || 'Failed to load admin section.');
+    content.innerHTML = '<p class="text-secondary mb-0">Unable to load this admin section.</p>';
+    return;
+  }
 
   if (isImpersonating()) {
     notifyInfo(`User view mode is active for user ${getEffectiveUserId()}.`);

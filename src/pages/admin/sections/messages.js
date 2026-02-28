@@ -25,7 +25,7 @@ export const renderMassMessagesSection = (content) => {
     <div class="card border-0 shadow-sm admin-section-card">
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-center mb-3">
-          <h3 class="h5 mb-0">Mass Messages</h3>
+          <h3 class="h5 mb-0">Messages</h3>
           <button class="btn btn-sm btn-primary" type="button" id="open-mass-message-form-btn">Create Message</button>
         </div>
         <div class="admin-table-wrap table-responsive">
@@ -39,7 +39,7 @@ export const renderMassMessagesSection = (content) => {
 
     <div class="card border-0 shadow-sm d-none" id="mass-message-form-panel">
       <div class="card-body">
-        <h3 class="h5 mb-3">Create / Edit Mass Message</h3>
+        <h3 class="h5 mb-3">Create / Edit Message</h3>
         <form id="mass-message-form" class="row g-3">
           <input type="hidden" name="id" />
           <div class="col-12">
@@ -51,8 +51,8 @@ export const renderMassMessagesSection = (content) => {
             <textarea class="form-control" name="content_html" rows="4" required></textarea>
           </div>
           <div class="col-12 admin-inline-actions">
-            <button class="btn btn-primary" type="submit">Save Message</button>
-            <button class="btn btn-outline-secondary" type="button" id="close-mass-message-form-btn">Close</button>
+            <button class="btn btn-primary" type="submit">Save</button>
+            <button class="btn btn-outline-secondary" type="button" id="close-mass-message-form-btn">Cancel</button>
           </div>
         </form>
       </div>
@@ -110,11 +110,11 @@ export const renderMassMessagesSection = (content) => {
     const { error } = await query;
 
     if (error) {
-      notifyError(error.message || 'Failed to save mass message.');
+      notifyError(error.message || 'Failed to save message.');
       return;
     }
 
-    notifyInfo(messageId ? 'Mass message updated.' : 'Mass message created.');
+    notifyInfo(messageId ? 'Message updated.' : 'Message created.');
     await loadInitialData();
     renderMassMessagesSection(content);
   });
@@ -133,17 +133,17 @@ export const renderMassMessagesSection = (content) => {
 
   content.querySelectorAll('[data-delete-msg]').forEach((button) => {
     button.addEventListener('click', async () => {
-      const confirmed = window.confirm('Delete this mass message?');
+      const confirmed = window.confirm('Delete this message?');
       if (!confirmed) return;
 
       const { error } = await supabase.from('mass_messages').delete().eq('id', button.dataset.deleteMsg);
 
       if (error) {
-        notifyError(error.message || 'Failed to delete mass message.');
+        notifyError(error.message || 'Failed to delete message.');
         return;
       }
 
-      notifyInfo('Mass message deleted.');
+      notifyInfo('Message deleted.');
       await loadInitialData();
       renderMassMessagesSection(content);
     });

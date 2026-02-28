@@ -25,7 +25,7 @@ export const renderProfileSection = (content) => {
             <input class="form-control" name="phone" value="${profile?.phone ?? ''}" />
           </div>
           <div class="col-12">
-            <button class="btn btn-primary" type="submit">Save Profile</button>
+            <button class="btn btn-primary" type="submit">Save</button>
           </div>
         </form>
       </div>

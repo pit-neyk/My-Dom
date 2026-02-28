@@ -4,12 +4,14 @@ import { renderLoginPage } from '../pages/login/login.js';
 import { renderRegisterPage } from '../pages/register/register.js';
 import { renderAdminPanelPage } from '../pages/admin/admin.js';
 import { renderAdminHomePage } from '../pages/admin-home/admin-home.js';
+import { renderPaymentsPage } from '../pages/payments/payments.js';
 
 export const routeMap = {
   '/': renderHomePage,
   '/login': renderLoginPage,
   '/register': renderRegisterPage,
   '/dashboard': renderDashboardPage,
+  '/payments': renderPaymentsPage,
   '/admin': renderAdminHomePage,
   '/admin/panel': renderAdminPanelPage
 };

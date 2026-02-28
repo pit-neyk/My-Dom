@@ -40,6 +40,11 @@ export const enableTableColumnFilters = (root, options = {}) => {
 
     const updateHeaderIndicators = () => {
       Array.from(headerRow.cells).forEach((cell, index) => {
+        const hasCheckbox = Boolean(cell.querySelector('input[type="checkbox"]'));
+        if (hasCheckbox) {
+          return;
+        }
+
         const baseLabel = cell.dataset.baseLabel ?? cell.textContent.trim();
         cell.dataset.baseLabel = baseLabel;
 

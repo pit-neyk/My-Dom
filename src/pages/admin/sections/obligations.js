@@ -2,9 +2,24 @@ import { supabase } from '../../../lib/supabase.js';
 import { notifyError, notifyInfo } from '../../../components/toast/toast.js';
 import { getCurrentSession } from '../../../features/auth/auth.js';
 import { enableTableColumnFilters } from '../../../components/table-filters/table-filters.js';
-import { state, loadInitialData, MONTH_NAMES, getPrevMonthYear } from '../adminState.js';
+import { state, loadObligationsData, MONTH_NAMES, getPrevMonthYear } from '../adminState.js';
 
-export const renderObligationsSection = (content) => {
+export const renderObligationsSection = async (content) => {
+  content.innerHTML = `
+    <div class="d-flex align-items-center gap-2 text-secondary py-5 justify-content-center">
+      <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
+      <span>Loading payment obligations…</span>
+    </div>
+  `;
+
+  try {
+    await loadObligationsData();
+  } catch (error) {
+    notifyError(error.message || 'Failed to load payment obligations.');
+    content.innerHTML = '<p class="text-secondary mb-0">Unable to load payment obligations.</p>';
+    return;
+  }
+
   const toPaymentsArray = (payments) => {
     if (Array.isArray(payments)) {
       return payments;
@@ -116,8 +131,8 @@ export const renderObligationsSection = (content) => {
             <div class="row g-2">${objectChecks}</div>
           </div>
           <div class="col-12 admin-inline-actions">
-            <button class="btn btn-primary" type="submit">Save Obligations</button>
-            <button class="btn btn-outline-secondary" type="button" id="close-obligation-form-btn">Close</button>
+            <button class="btn btn-primary" type="submit">Save</button>
+            <button class="btn btn-outline-secondary" type="button" id="close-obligation-form-btn">Cancel</button>
           </div>
         </form>
       </div>
@@ -165,11 +180,16 @@ export const renderObligationsSection = (content) => {
     const eligible = getEligibleCheckboxes();
     const checked = getCheckedCheckboxes();
 
-    const hasEligible = eligible.length > 0;
-    selectAllCheckbox.disabled = !hasEligible;
-    selectAllCheckbox.checked = hasEligible && checked.length === eligible.length;
-    selectAllCheckbox.indeterminate = checked.length > 0 && checked.length < eligible.length;
-    paySelectedButton.disabled = checked.length === 0;
+    if (selectAllCheckbox) {
+      const hasEligible = eligible.length > 0;
+      selectAllCheckbox.disabled = !hasEligible;
+      selectAllCheckbox.checked = hasEligible && checked.length === eligible.length;
+      selectAllCheckbox.indeterminate = checked.length > 0 && checked.length < eligible.length;
+    }
+
+    if (paySelectedButton) {
+      paySelectedButton.disabled = checked.length === 0;
+    }
   };
 
   const markObligationsAsPaid = async (obligationIds) => {
@@ -193,26 +213,30 @@ export const renderObligationsSection = (content) => {
       return;
     }
 
-    await loadInitialData();
-    renderObligationsSection(content);
+    await loadObligationsData();
+    await renderObligationsSection(content);
   };
 
-  selectAllCheckbox.addEventListener('change', () => {
-    const shouldCheck = selectAllCheckbox.checked;
-    getEligibleCheckboxes().forEach((checkbox) => {
-      checkbox.checked = shouldCheck;
+  if (selectAllCheckbox) {
+    selectAllCheckbox.addEventListener('change', () => {
+      const shouldCheck = selectAllCheckbox.checked;
+      getEligibleCheckboxes().forEach((checkbox) => {
+        checkbox.checked = shouldCheck;
+      });
+      updateSelectionControls();
     });
-    updateSelectionControls();
-  });
+  }
 
   content.querySelectorAll('[data-obligation-select]').forEach((checkbox) => {
     checkbox.addEventListener('change', updateSelectionControls);
   });
 
-  paySelectedButton.addEventListener('click', async () => {
-    const selectedIds = getCheckedCheckboxes().map((checkbox) => checkbox.dataset.obligationSelect);
-    await markObligationsAsPaid(selectedIds);
-  });
+  if (paySelectedButton) {
+    paySelectedButton.addEventListener('click', async () => {
+      const selectedIds = getCheckedCheckboxes().map((checkbox) => checkbox.dataset.obligationSelect);
+      await markObligationsAsPaid(selectedIds);
+    });
+  }
 
   updateSelectionControls();
 
@@ -244,8 +268,8 @@ export const renderObligationsSection = (content) => {
       }
 
       notifyInfo('Payment obligation updated.');
-      await loadInitialData();
-      renderObligationsSection(content);
+      await loadObligationsData();
+      await renderObligationsSection(content);
       return;
     }
 
@@ -285,8 +309,8 @@ export const renderObligationsSection = (content) => {
       }
 
       notifyInfo('Monthly obligations copied from previous month.');
-      await loadInitialData();
-      renderObligationsSection(content);
+      await loadObligationsData();
+      await renderObligationsSection(content);
       return;
     }
 
@@ -307,8 +331,8 @@ export const renderObligationsSection = (content) => {
     }
 
     notifyInfo('Monthly obligations saved.');
-    await loadInitialData();
-    renderObligationsSection(content);
+    await loadObligationsData();
+    await renderObligationsSection(content);
   });
 
   content.querySelectorAll('[data-edit-obligation]').forEach((button) => {
@@ -345,8 +369,8 @@ export const renderObligationsSection = (content) => {
       }
 
       notifyInfo('Payment obligation deleted.');
-      await loadInitialData();
-      renderObligationsSection(content);
+      await loadObligationsData();
+      await renderObligationsSection(content);
     });
   });
 };
