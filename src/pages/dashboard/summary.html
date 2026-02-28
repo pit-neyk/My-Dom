@@ -1,16 +1,22 @@
-<div class="row g-3 mb-5">
+<div class="row g-3 mb-5 dom-stagger">
   <div class="col-12 col-md-6">
-    <div class="card border-0 shadow-sm h-100 dashboard-summary-card">
+    <div class="card border-0 h-100 dashboard-summary-card summary-collected">
       <div class="card-body">
-        <p class="summary-label text-success">Collected</p>
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-success"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          <p class="summary-label text-success mb-0">Collected</p>
+        </div>
         <p class="summary-amount text-success mb-0">{{collected}}</p>
       </div>
     </div>
   </div>
   <div class="col-12 col-md-6">
-    <div class="card border-0 shadow-sm h-100 dashboard-summary-card">
+    <div class="card border-0 h-100 dashboard-summary-card summary-due">
       <div class="card-body">
-        <p class="summary-label text-danger">Still Due</p>
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-danger"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <p class="summary-label text-danger mb-0">Still Due</p>
+        </div>
         <p class="summary-amount text-danger mb-0">{{due}}</p>
       </div>
     </div>

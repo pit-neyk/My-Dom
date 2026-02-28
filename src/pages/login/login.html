@@ -1,34 +1,46 @@
-<section class="auth-page card border-0 shadow-sm mx-auto">
-  <div class="card-body p-4 p-lg-5">
-    <p class="text-secondary mb-4">Sign in with your registered email and password.</p>
+<section class="auth-page mx-auto dom-animate-in">
+  <div class="auth-card">
+    <div class="auth-header">
+      <div class="auth-logo">
+        <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+          <defs><linearGradient id="auth-logo" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#6366f1"/><stop offset="100%" stop-color="#a78bfa"/></linearGradient></defs>
+          <rect width="40" height="40" rx="10" fill="url(#auth-logo)"/>
+          <path d="M8 12h5.5c4.5 0 7 2.5 7 7s-2.5 7-7 7H8V12zm3 2.5v9h2.3c3 0 4.2-1.8 4.2-4.5s-1.2-4.5-4.2-4.5H11z" fill="white"/>
+          <circle cx="28" cy="19" r="5.5" stroke="white" stroke-width="2.5" fill="none"/>
+          <path d="M28 28v-2.5" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <h2 class="auth-title">Welcome back</h2>
+      <p class="auth-subtitle">Sign in with your registered email and password.</p>
+    </div>
 
-    <form id="login-form" novalidate>
+    <form id="login-form" novalidate class="auth-form">
       <div class="mb-3">
         <label for="login-email" class="form-label">Email</label>
-        <input id="login-email" name="email" type="email" class="form-control" required autocomplete="email" />
+        <div class="auth-input-wrap">
+          <svg class="auth-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          <input id="login-email" name="email" type="email" class="form-control auth-input" required autocomplete="email" placeholder="name@example.com" />
+        </div>
       </div>
 
-      <div class="mb-3">
+      <div class="mb-4">
         <label for="login-password" class="form-label">Password</label>
-        <input
-          id="login-password"
-          name="password"
-          type="password"
-          class="form-control"
-          required
-          autocomplete="current-password"
-          minlength="6"
-        />
+        <div class="auth-input-wrap">
+          <svg class="auth-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <input id="login-password" name="password" type="password" class="form-control auth-input" required autocomplete="current-password" minlength="6" placeholder="••••••••" />
+        </div>
       </div>
 
       <div class="d-grid">
-        <button id="login-submit" type="submit" class="btn btn-primary">Login</button>
+        <button id="login-submit" type="submit" class="btn btn-primary btn-lg">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+          Sign In
+        </button>
       </div>
     </form>
 
-    <p class="mt-4 mb-0">
-      Need an account?
-      <a href="/register" data-link="router">Register here</a>
-    </p>
+    <div class="auth-footer">
+      <p>Need an account? <a href="/register" data-link="router" class="auth-link">Register here</a></p>
+    </div>
   </div>
 </section>

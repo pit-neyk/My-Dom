@@ -1,3 +1,36 @@
 #footer-slot {
   margin-top: auto;
 }
+
+.dom-footer {
+  border-top: 1px solid var(--dom-border-light);
+  background: var(--dom-surface);
+  padding: 1.5rem 0;
+}
+
+.dom-footer-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.dom-footer-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  font-size: 0.9375rem;
+  letter-spacing: -0.01em;
+  background: var(--dom-primary-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.dom-footer-text {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--dom-text-muted);
+}

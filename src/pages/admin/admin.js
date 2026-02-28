@@ -31,12 +31,15 @@ const withTimeout = (promise, timeoutMs, timeoutMessage) =>
 const renderLoadingState = (container, message) => {
   container.textContent = '';
   const loadingWrap = document.createElement('div');
-  loadingWrap.className = 'd-flex align-items-center gap-2 text-secondary py-5 justify-content-center';
+  loadingWrap.className = 'd-flex align-items-center gap-3 py-5 justify-content-center dom-animate-in';
   const spinner = document.createElement('div');
   spinner.className = 'spinner-border spinner-border-sm';
+  spinner.style.color = 'var(--dom-primary)';
   spinner.setAttribute('role', 'status');
   spinner.setAttribute('aria-hidden', 'true');
   const text = document.createElement('span');
+  text.className = 'text-secondary';
+  text.style.fontSize = '0.875rem';
   text.textContent = message;
   loadingWrap.append(spinner, text);
   container.appendChild(loadingWrap);

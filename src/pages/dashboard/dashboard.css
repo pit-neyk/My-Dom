@@ -1,26 +1,67 @@
 .dashboard-page {
   max-width: 960px;
+  animation: dom-fade-in 0.4s ease-out both;
+}
+
+.dashboard-summary-card {
+  border-radius: var(--dom-radius-lg) !important;
+  border: 1px solid var(--dom-border-light) !important;
+  transition: all var(--dom-transition);
+  overflow: hidden;
+}
+
+.dashboard-summary-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--dom-shadow-md) !important;
 }
 
 .dashboard-summary-card .card-body {
   padding: 1.5rem;
+  position: relative;
+}
+
+.dashboard-summary-card .card-body::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+}
+
+.dashboard-summary-card.summary-collected .card-body::before {
+  background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+.dashboard-summary-card.summary-due .card-body::before {
+  background: linear-gradient(90deg, #f43f5e, #fb7185);
 }
 
 .summary-label {
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: 0.7rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 0.5rem;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.625rem;
 }
 
 .summary-amount {
   font-size: 2rem;
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1;
+  letter-spacing: -0.02em;
 }
 
 .dashboard-messages-list {
   display: grid;
   gap: 0.75rem;
+}
+
+/* Dashboard object cards */
+.dashboard-page .card-header {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }

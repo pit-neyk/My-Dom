@@ -1,48 +1,69 @@
-<div class="home-page">
-  <section class="card border-0 shadow-sm mb-4">
-    <div class="card-body p-4 p-lg-5">
-      <h1 class="display-6 fw-semibold mb-3">Welcome to DOM</h1>
-      <p class="lead mb-3">
-        DOM is a home-building management app where residents and admins can organize events,
-        follow monthly payment obligations, and communicate in shared discussions.
+<div class="home-page dom-animate-in">
+  <!-- Hero Section -->
+  <section class="home-hero">
+    <div class="home-hero-bg"></div>
+    <div class="home-hero-content">
+      <div class="home-hero-badge">Home Building Management</div>
+      <h1 class="home-hero-title">
+        Welcome to
+        <span class="dom-gradient-text">DOM</span>
+      </h1>
+      <p class="home-hero-subtitle">
+        A modern platform where residents and admins organize events,
+        manage monthly payments, and communicate seamlessly.
       </p>
-      <p class="text-secondary mb-4">
-        If you are a resident, please register for a new account or log in to access your profile,
-        payments, events, and discussions.
+      <p class="home-hero-note">
+        Register or sign in to access your dashboard, payments, events, and discussions.
       </p>
-      <div class="d-flex flex-wrap gap-2">
-        <a href="/register" data-link="router" class="btn btn-primary">Register</a>
-        <a href="/login" data-link="router" class="btn btn-outline-primary">Login</a>
+      <div class="home-hero-actions">
+        <a href="/register" data-link="router" class="btn btn-primary btn-lg home-hero-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+          Get Started
+        </a>
+        <a href="/login" data-link="router" class="btn btn-outline-primary btn-lg home-hero-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+          Sign In
+        </a>
       </div>
     </div>
   </section>
 
-  <section class="row g-3 landing-highlights" aria-label="DOM highlights">
+  <!-- Features Grid -->
+  <section class="row g-4 landing-highlights dom-stagger" aria-label="DOM highlights">
     <div class="col-12 col-md-6 col-lg-4">
-      <article class="card h-100 border-0 shadow-sm">
-        <div class="card-body">
-          <h2 class="h5 mb-2">Payment Transparency</h2>
-          <p class="mb-0 text-secondary">
+      <article class="card h-100 border-0 feature-card">
+        <div class="card-body p-4">
+          <div class="feature-icon feature-icon--emerald">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+          </div>
+          <h2 class="feature-title">Payment Transparency</h2>
+          <p class="feature-desc">
             See obligations by month, track what is paid, and keep building finances clear for everyone.
           </p>
         </div>
       </article>
     </div>
     <div class="col-12 col-md-6 col-lg-4">
-      <article class="card h-100 border-0 shadow-sm">
-        <div class="card-body">
-          <h2 class="h5 mb-2">Events & Coordination</h2>
-          <p class="mb-0 text-secondary">
+      <article class="card h-100 border-0 feature-card">
+        <div class="card-body p-4">
+          <div class="feature-icon feature-icon--violet">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          </div>
+          <h2 class="feature-title">Events & Coordination</h2>
+          <p class="feature-desc">
             Stay informed about meetings, maintenance, and important activities in your building.
           </p>
         </div>
       </article>
     </div>
     <div class="col-12 col-md-6 col-lg-4">
-      <article class="card h-100 border-0 shadow-sm">
-        <div class="card-body">
-          <h2 class="h5 mb-2">Discussions & Messages</h2>
-          <p class="mb-0 text-secondary">
+      <article class="card h-100 border-0 feature-card">
+        <div class="card-body p-4">
+          <div class="feature-icon feature-icon--amber">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          </div>
+          <h2 class="feature-title">Discussions & Messages</h2>
+          <p class="feature-desc">
             Open discussion topics and collaborate with neighbors in one shared communication space.
           </p>
         </div>

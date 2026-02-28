@@ -1,9 +1,48 @@
 .admin-sidebar {
   top: 1rem;
+  border-radius: var(--dom-radius-lg) !important;
+}
+
+.admin-sidebar .nav {
+  gap: 0.25rem !important;
+}
+
+.admin-sidebar .btn-outline-secondary {
+  border: none;
+  border-radius: var(--dom-radius-sm);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  padding: 0.5rem 0.75rem;
+  color: var(--dom-text-secondary);
+  transition: all var(--dom-transition-fast);
+}
+
+.admin-nav-btn {
+  border: none !important;
+  border-radius: var(--dom-radius-sm);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  padding: 0.5rem 0.75rem;
+  color: var(--dom-text-secondary);
+  transition: all var(--dom-transition-fast);
+}
+
+.admin-sidebar .btn-outline-secondary:hover,
+.admin-nav-btn:hover {
+  background: var(--dom-bg-subtle);
+  color: var(--dom-primary);
+}
+
+.admin-sidebar .btn-outline-secondary.active,
+.admin-nav-btn.active {
+  background: var(--dom-primary-gradient) !important;
+  color: #fff !important;
+  box-shadow: var(--dom-shadow-primary);
 }
 
 .admin-section-card {
   margin-bottom: 1rem;
+  border-radius: var(--dom-radius-lg) !important;
 }
 
 .admin-table-wrap {
@@ -12,12 +51,26 @@
 }
 
 .admin-muted {
-  font-size: 0.9rem;
-  color: var(--bs-secondary-color);
+  font-size: 0.875rem;
+  color: var(--dom-text-muted);
 }
 
 .admin-inline-actions {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+  align-items: center;
+}
+
+.admin-panel {
+  animation: dom-fade-in 0.4s ease-out both;
+}
+
+/* Admin table hover effect */
+.admin-section-card .table tbody tr {
+  transition: background var(--dom-transition-fast);
+}
+
+.admin-section-card .table tbody tr:hover {
+  background: rgba(99, 102, 241, 0.04);
 }

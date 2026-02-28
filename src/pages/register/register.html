@@ -1,47 +1,54 @@
-<section class="auth-page card border-0 shadow-sm mx-auto">
-  <div class="card-body p-4 p-lg-5">
-    <p class="text-secondary mb-4">Create your resident account to access payments, events, and discussions.</p>
+<section class="auth-page mx-auto dom-animate-in">
+  <div class="auth-card">
+    <div class="auth-header">
+      <div class="auth-logo">
+        <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+          <defs><linearGradient id="reg-logo" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#6366f1"/><stop offset="100%" stop-color="#a78bfa"/></linearGradient></defs>
+          <rect width="40" height="40" rx="10" fill="url(#reg-logo)"/>
+          <path d="M8 12h5.5c4.5 0 7 2.5 7 7s-2.5 7-7 7H8V12zm3 2.5v9h2.3c3 0 4.2-1.8 4.2-4.5s-1.2-4.5-4.2-4.5H11z" fill="white"/>
+          <circle cx="28" cy="19" r="5.5" stroke="white" stroke-width="2.5" fill="none"/>
+          <path d="M28 28v-2.5" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <h2 class="auth-title">Create your account</h2>
+      <p class="auth-subtitle">Join as a resident to access payments, events, and discussions.</p>
+    </div>
 
-    <form id="register-form" novalidate>
+    <form id="register-form" novalidate class="auth-form">
       <div class="mb-3">
         <label for="register-email" class="form-label">Email</label>
-        <input id="register-email" name="email" type="email" class="form-control" required autocomplete="email" />
+        <div class="auth-input-wrap">
+          <svg class="auth-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          <input id="register-email" name="email" type="email" class="form-control auth-input" required autocomplete="email" placeholder="name@example.com" />
+        </div>
       </div>
 
       <div class="mb-3">
         <label for="register-password" class="form-label">Password</label>
-        <input
-          id="register-password"
-          name="password"
-          type="password"
-          class="form-control"
-          required
-          autocomplete="new-password"
-          minlength="6"
-        />
+        <div class="auth-input-wrap">
+          <svg class="auth-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <input id="register-password" name="password" type="password" class="form-control auth-input" required autocomplete="new-password" minlength="6" placeholder="••••••••" />
+        </div>
       </div>
 
-      <div class="mb-3">
+      <div class="mb-4">
         <label for="register-confirm-password" class="form-label">Confirm Password</label>
-        <input
-          id="register-confirm-password"
-          name="confirmPassword"
-          type="password"
-          class="form-control"
-          required
-          autocomplete="new-password"
-          minlength="6"
-        />
+        <div class="auth-input-wrap">
+          <svg class="auth-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <input id="register-confirm-password" name="confirmPassword" type="password" class="form-control auth-input" required autocomplete="new-password" minlength="6" placeholder="••••••••" />
+        </div>
       </div>
 
       <div class="d-grid">
-        <button id="register-submit" type="submit" class="btn btn-primary">Register</button>
+        <button id="register-submit" type="submit" class="btn btn-primary btn-lg">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+          Create Account
+        </button>
       </div>
     </form>
 
-    <p class="mt-4 mb-0">
-      Already have an account?
-      <a href="/login" data-link="router">Login here</a>
-    </p>
+    <div class="auth-footer">
+      <p>Already have an account? <a href="/login" data-link="router" class="auth-link">Sign in here</a></p>
+    </div>
   </div>
 </section>

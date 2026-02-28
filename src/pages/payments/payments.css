@@ -1,12 +1,51 @@
 .payments-sidebar {
   top: 1rem;
+  border-radius: var(--dom-radius-lg) !important;
+}
+
+.payments-sidebar .nav {
+  gap: 0.25rem !important;
+}
+
+.payments-sidebar .btn-outline-secondary {
+  border: none;
+  border-radius: var(--dom-radius-sm);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  padding: 0.5rem 0.75rem;
+  color: var(--dom-text-secondary);
+  transition: all var(--dom-transition-fast);
+}
+
+.payments-sidebar .btn-outline-secondary:hover {
+  background: var(--dom-bg-subtle);
+  color: var(--dom-primary);
+}
+
+.payments-sidebar .btn-outline-secondary.active {
+  background: var(--dom-primary-gradient) !important;
+  color: #fff !important;
+  box-shadow: var(--dom-shadow-primary);
 }
 
 .payment-property-row {
   cursor: pointer;
+  transition: background var(--dom-transition-fast);
+}
+
+.payment-property-row:hover {
+  background: rgba(99, 102, 241, 0.04);
 }
 
 .payment-details-panel {
-  border-top: 1px solid var(--bs-border-color);
+  border-top: 1px solid var(--dom-border-light);
   padding-top: 1rem;
+}
+
+.payments-page .card {
+  border-radius: var(--dom-radius-lg) !important;
+}
+
+.payments-page {
+  animation: dom-fade-in 0.4s ease-out both;
 }

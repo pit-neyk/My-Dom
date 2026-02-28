@@ -1,31 +1,67 @@
 .admin-home-sidebar {
   top: 1rem;
+  border-radius: var(--dom-radius-lg) !important;
+}
+
+.admin-home-sidebar .nav {
+  gap: 0.25rem !important;
+}
+
+.admin-home-sidebar .btn-outline-secondary {
+  border: none;
+  border-radius: var(--dom-radius-sm);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  padding: 0.5rem 0.75rem;
+  color: var(--dom-text-secondary);
+  transition: all var(--dom-transition-fast);
+}
+
+.admin-home-sidebar .btn-outline-secondary:hover {
+  background: var(--dom-bg-subtle);
+  color: var(--dom-primary);
+}
+
+.admin-home-sidebar .btn-outline-secondary.active {
+  background: var(--dom-primary-gradient) !important;
+  color: #fff !important;
+  box-shadow: var(--dom-shadow-primary);
 }
 
 .admin-home-label {
-  font-size: 0.9rem;
+  font-size: 0.7rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
 }
 
 .admin-home-value {
   font-size: 2rem;
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1.1;
+  letter-spacing: -0.02em;
 }
 
 .admin-home-filter-card {
   cursor: pointer;
+  border-radius: var(--dom-radius-lg) !important;
+  transition: all var(--dom-transition);
+  border: 1.5px solid transparent !important;
+}
+
+.admin-home-filter-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--dom-shadow-md) !important;
 }
 
 .admin-home-filter-card:focus-visible {
-  outline: 2px solid var(--bs-primary);
+  outline: 2px solid var(--dom-primary);
   outline-offset: 2px;
 }
 
 .admin-home-filter-card.active {
-  box-shadow: var(--bs-box-shadow) !important;
-  border: 1px solid var(--bs-primary) !important;
+  box-shadow: var(--dom-shadow-primary) !important;
+  border: 1.5px solid var(--dom-primary) !important;
 }
 
 .admin-home-messages-list {
@@ -35,7 +71,17 @@
 }
 
 .admin-home-message-item {
-  border: 1px solid var(--bs-border-color);
-  border-radius: 0.5rem;
-  padding: 0.75rem;
+  border: 1px solid var(--dom-border-light);
+  border-radius: var(--dom-radius);
+  padding: 1rem;
+  transition: all var(--dom-transition-fast);
+}
+
+.admin-home-message-item:hover {
+  border-color: var(--dom-primary-lighter);
+  background: rgba(99, 102, 241, 0.02);
+}
+
+.admin-home {
+  animation: dom-fade-in 0.4s ease-out both;
 }
