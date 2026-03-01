@@ -2,47 +2,64 @@
   animation: dom-fade-in 0.35s ease-out both;
 }
 
-.signals-list {
+#create-discussion-form {
+  border-top: 1px solid var(--dom-border-light);
+  padding-top: 1rem;
+}
+
+.discussions-list {
   display: grid;
   gap: 1rem;
 }
 
-.signal-card {
+.discussion-card {
   border-radius: var(--dom-radius-lg);
 }
 
-.signal-card .signal-title {
+.discussion-card .discussion-title {
   font-size: 1.05rem;
   font-weight: 700;
   margin-bottom: 0.25rem;
 }
 
-.signal-meta {
+.discussion-meta {
   font-size: 0.78rem;
   color: var(--dom-text-muted);
 }
 
-.signal-description {
+.discussion-description {
   color: var(--dom-text-secondary);
   white-space: pre-wrap;
-  margin-bottom: 1rem;
+  margin: 1rem 0;
 }
 
-.signal-preview-wrap {
+.discussion-toggle-btn {
+  min-width: 5.25rem;
+}
+
+.discussion-content-wrap {
+  margin-top: 1rem;
+}
+
+.discussion-content-wrap.is-collapsed {
+  display: none;
+}
+
+.discussion-preview-wrap {
   border-radius: var(--dom-radius);
   overflow: hidden;
   border: 1px solid var(--dom-border-light);
   background: var(--dom-bg-subtle);
 }
 
-.signal-preview-image {
+.discussion-preview-image {
   display: block;
   width: 100%;
   max-height: 340px;
   object-fit: cover;
 }
 
-.signal-comments-title {
+.discussion-comments-title {
   font-size: 0.85rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -50,32 +67,32 @@
   color: var(--dom-text-secondary);
 }
 
-.signal-comment-list {
+.discussion-comment-list {
   display: grid;
   gap: 0.75rem;
 }
 
-.signal-comment-item {
+.discussion-comment-item {
   border: 1px solid var(--dom-border-light);
   border-radius: var(--dom-radius);
   padding: 0.75rem;
   background: var(--dom-bg);
 }
 
-.signal-comment-content {
+.discussion-comment-content {
   white-space: pre-wrap;
   color: var(--dom-text);
   margin: 0.375rem 0 0;
 }
 
-.signal-attachments {
+.discussion-attachments {
   margin-top: 0.5rem;
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
 }
 
-.signal-attachment-link {
+.discussion-attachment-link {
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
@@ -87,18 +104,18 @@
   padding: 0.3rem 0.6rem;
 }
 
-.signal-attachment-link:hover {
+.discussion-attachment-link:hover {
   background: var(--dom-primary-lighter);
   color: var(--dom-primary-dark);
 }
 
-.signal-comment-form {
+.discussion-comment-form {
   border-top: 1px solid var(--dom-border-light);
   margin-top: 1rem;
   padding-top: 1rem;
 }
 
-.signal-empty {
+.discussion-empty {
   text-align: center;
   color: var(--dom-text-secondary);
 }

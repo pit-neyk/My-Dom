@@ -37,6 +37,7 @@
   - Use Supabase storage for file uploads and management, allowing users to attach files to discussions and events.
   - Design the database schema to support the application's features, including tables for users, events, payment obligations, discussions, messages, etc.
   - When changing the database schema, always use migrations to keep track of changes. 
+  - Always apply new migrations directly in Supabase during implementation (via MCP tools), not as a manual follow-up step for the user.
   - After applying a migration in Supabase, keep a copy of the migration SQL file in the code.
 
    ## Authentication and Authorization:

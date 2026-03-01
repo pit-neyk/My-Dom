@@ -70,10 +70,16 @@ export const initAuth = async (onSessionChange) => {
   onSessionChange?.(currentSession);
 
   if (!authSubscription) {
-    const { data: listenerData } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const handleAuthStateChange = async (session) => {
       currentSession = session;
       await loadCurrentRole();
       onSessionChange?.(currentSession);
+    };
+
+    const { data: listenerData } = supabase.auth.onAuthStateChange((_event, session) => {
+      setTimeout(() => {
+        void handleAuthStateChange(session);
+      }, 0);
     });
 
     authSubscription = listenerData.subscription;

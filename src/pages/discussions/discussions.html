@@ -1,9 +1,39 @@
 <section class="discussions-page">
-  <div class="row">
+  <div class="row g-3">
     <div class="col-12">
-      <div id="signals-list" class="signals-list">
+      <div class="card border-0">
+        <div class="card-body p-4">
+          <h2 class="h5 mb-2">Start New Discussion</h2>
+          <p class="text-secondary mb-3">Create a new discussion for everyone in the building.</p>
+
+          <form id="create-discussion-form" class="row g-3" novalidate>
+            <div class="col-12">
+              <label class="form-label" for="discussion-title">Title</label>
+              <input id="discussion-title" name="title" class="form-control" maxlength="120" required />
+            </div>
+
+            <div class="col-12">
+              <label class="form-label" for="discussion-description">Message</label>
+              <textarea id="discussion-description" name="description" class="form-control" rows="5" required></textarea>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label" for="discussion-files">Attachments (optional)</label>
+              <input id="discussion-files" name="attachments" class="form-control" type="file" multiple />
+            </div>
+
+            <div class="col-12 d-flex justify-content-end">
+              <button id="create-discussion-submit" class="btn btn-primary" type="submit">Publish Discussion</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12">
+      <div id="discussions-list" class="discussions-list">
         <div class="card border-0">
-          <div class="card-body text-secondary">Loading signals…</div>
+          <div class="card-body text-secondary">Loading discussions…</div>
         </div>
       </div>
     </div>

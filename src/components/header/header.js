@@ -6,7 +6,7 @@ import { notifyError } from '../toast/toast.js';
 
 const headerSlot = () => document.getElementById('header-slot');
 const guestRouteSet = new Set(['/', '/login', '/register']);
-const authRouteSet = new Set(['/dashboard', '/create-signal', '/discussions']);
+const authRouteSet = new Set(['/dashboard', '/discussions']);
 
 const navigateToPath = (path) => {
   if (window.location.pathname !== path) {
@@ -28,15 +28,16 @@ export const renderHeader = (currentPath = '/') => {
   const linksContainer = slot.querySelector('#header-nav-links');
   const authenticated = isAuthenticated();
   const admin = authenticated && isAdmin();
+  const impersonating = authenticated && isImpersonating();
 
   const brandLink = slot.querySelector('#brand-link');
   if (brandLink && authenticated) {
-    brandLink.setAttribute('href', admin ? '/admin' : '/dashboard');
+    brandLink.setAttribute('href', admin && !impersonating ? '/admin' : '/dashboard');
   }
 
   const visibleLinks = navigationLinks.filter(({ href }) => {
     if (authenticated) {
-      if (admin) {
+      if (admin && !impersonating) {
         return false;
       }
 

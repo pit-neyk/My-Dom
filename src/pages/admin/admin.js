@@ -8,13 +8,19 @@ import {
   isImpersonating
 } from '../../features/auth/auth.js';
 import { notifyError, notifyInfo } from '../../components/toast/toast.js';
-import { loadInitialData, getRequestedSectionId, renderNav } from './adminState.js';
+import {
+  loadInitialData,
+  getRequestedSectionId,
+  renderNav,
+  markAdminDiscussionsAsSeen
+} from './adminState.js';
 import { renderObjectsSection } from './sections/objects/objects.js';
 import { renderRatesSection } from './sections/rates/rates.js';
 import { renderPaymentObligationsSection } from './sections/payment-obligations/payment-obligations.js';
 import { renderEventsSection } from './sections/events/events.js';
 import { renderDocumentsSection } from './sections/documents/documents.js';
 import { renderMassMessagesSection } from './sections/messages/messages.js';
+import { renderAdminDiscussionsSection } from './sections/discussions/discussions.js';
 import { startViewAsUserMode } from './sections/impersonation/impersonation.js';
 import { renderProfileSection } from './sections/profile/profile.js';
 
@@ -73,6 +79,9 @@ const renderSection = async (sectionId, content) => {
     case 'messages':
       renderMassMessagesSection(content);
       break;
+    case 'discussions':
+      await renderAdminDiscussionsSection(content);
+      break;
     case 'impersonation':
       await startViewAsUserMode();
       break;
@@ -116,19 +125,31 @@ export const renderAdminPanelPage = async (container) => {
   }
 
   const initialSectionId = getRequestedSectionId();
-  renderNav(
-    nav,
-    (sectionId) => {
-      renderSection(sectionId, content).catch((error) => {
+
+  const renderSectionAndSyncNav = async (sectionId) => {
+    await renderSection(sectionId, content);
+
+    if (sectionId === 'discussions') {
+      markAdminDiscussionsAsSeen();
+    }
+
+    renderNav(nav, (nextSectionId) => {
+      renderSectionAndSyncNav(nextSectionId).catch((error) => {
         notifyError(error.message || 'Failed to load admin section.');
         renderErrorMessage(content, 'Unable to load this admin section.');
       });
-    },
-    initialSectionId
-  );
+    }, sectionId);
+  };
+
+  renderNav(nav, (sectionId) => {
+    renderSectionAndSyncNav(sectionId).catch((error) => {
+      notifyError(error.message || 'Failed to load admin section.');
+      renderErrorMessage(content, 'Unable to load this admin section.');
+    });
+  }, initialSectionId);
 
   try {
-    await renderSection(initialSectionId, content);
+    await renderSectionAndSyncNav(initialSectionId);
   } catch (error) {
     notifyError(error.message || 'Failed to load admin section.');
     renderErrorMessage(content, 'Unable to load this admin section.');

@@ -20,9 +20,12 @@ export const ADMIN_SECTIONS = [
   { id: 'events', label: 'Events', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>' },
   { id: 'documents', label: 'Documents', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>' },
   { id: 'messages', label: 'Messages', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>' },
+  { id: 'discussions', label: 'Discussions', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8"/><path d="M8 13h5"/></svg>' },
   { id: 'impersonation', label: 'View As User', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>' },
   { id: 'profile', label: 'My Profile', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' }
 ];
+
+const ADMIN_DISCUSSIONS_LAST_SEEN_AT_KEY = 'dom-admin-discussions-last-seen-at';
 
 export const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -41,7 +44,8 @@ export const state = {
   obligations: [],
   events: [],
   documents: [],
-  messages: []
+  messages: [],
+  discussions: []
 };
 
 export const getPrevMonthYear = (year, month) => {
@@ -62,13 +66,15 @@ export const loadInitialData = async () => {
     profilesRes,
     eventsRes,
     documentsRes,
-    messagesRes
+    messagesRes,
+    discussionsRes
   ] = await Promise.all([
     supabase.from('properties').select('*').order('number'),
     supabase.from('profiles').select('*').order('full_name', { ascending: true, nullsFirst: false }),
     supabase.from('events').select('*').order('created_at', { ascending: false }),
     supabase.from('documents').select('*').order('created_at', { ascending: false }),
-    supabase.from('mass_messages').select('*').order('created_at', { ascending: false })
+    supabase.from('mass_messages').select('*').order('created_at', { ascending: false }),
+    supabase.from('discussions').select('id,created_at').order('created_at', { ascending: false })
   ]);
 
   const errors = [
@@ -76,7 +82,8 @@ export const loadInitialData = async () => {
     profilesRes.error,
     eventsRes.error,
     documentsRes.error,
-    messagesRes.error
+    messagesRes.error,
+    discussionsRes.error
   ].filter(Boolean);
 
   if (errors.length > 0) {
@@ -88,6 +95,7 @@ export const loadInitialData = async () => {
   state.events = eventsRes.data ?? [];
   state.documents = documentsRes.data ?? [];
   state.messages = messagesRes.data ?? [];
+  state.discussions = discussionsRes.data ?? [];
 
   const propertyContactsRes = await supabase.from('property_contacts').select('*').order('created_at', { ascending: true });
 
@@ -140,6 +148,25 @@ export const getRequestedSectionId = () => {
   return ADMIN_SECTIONS.some((section) => section.id === sectionId) ? sectionId : 'rates';
 };
 
+export const getAdminDiscussionsUnreadCount = () => {
+  const lastSeenAt = localStorage.getItem(ADMIN_DISCUSSIONS_LAST_SEEN_AT_KEY);
+
+  if (!lastSeenAt) {
+    return state.discussions.length;
+  }
+
+  const lastSeenTime = Number(new Date(lastSeenAt));
+  if (!Number.isFinite(lastSeenTime)) {
+    return state.discussions.length;
+  }
+
+  return state.discussions.filter((discussion) => Number(new Date(discussion.created_at)) > lastSeenTime).length;
+};
+
+export const markAdminDiscussionsAsSeen = () => {
+  localStorage.setItem(ADMIN_DISCUSSIONS_LAST_SEEN_AT_KEY, new Date().toISOString());
+};
+
 export const renderNav = (container, onSelect, activeSectionId = 'rates') => {
   container.textContent = '';
 
@@ -155,7 +182,13 @@ export const renderNav = (container, onSelect, activeSectionId = 'rates') => {
     button.type = 'button';
     button.className = `btn btn-outline-secondary text-start admin-nav-btn d-flex align-items-center gap-2${section.id === activeSectionId ? ' active' : ''}`;
     button.dataset.sectionId = section.id;
-    button.innerHTML = `${section.icon || ''} ${section.label}`;
+    if (section.id === 'discussions') {
+      const unreadCount = getAdminDiscussionsUnreadCount();
+      const badgeHtml = unreadCount > 0 ? `<span class="admin-nav-badge ms-auto">${unreadCount}</span>` : '';
+      button.innerHTML = `${section.icon || ''} <span>Discussions</span>${badgeHtml}`;
+    } else {
+      button.innerHTML = `${section.icon || ''} ${section.label}`;
+    }
     container.appendChild(button);
   });
 

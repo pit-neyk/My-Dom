@@ -5,6 +5,7 @@ import { navigateTo } from '../../../../router/router.js';
 import { state, loadObligationsData, MONTH_NAMES } from '../../adminState.js';
 import template from './rates.html?raw';
 import editIconSvg from '../../../../assets/icons/edit.svg?raw';
+import deleteIconSvg from '../../../../assets/icons/delete.svg?raw';
 import './rates.css';
 
 const sortByPeriodDesc = (left, right) => {
@@ -59,12 +60,28 @@ const toToggleButtonMarkup = (rate) => {
   return `
     <button
       type="button"
-      class="btn btn-sm ${className}"
+      class="btn btn-sm ${className} rates-toggle-btn"
       data-toggle-rate="${rate.id}"
       data-next-active="${String(nextActive)}"
       title="${title}"
       ${disabled ? 'disabled' : ''}
     >${label}</button>
+  `;
+};
+
+const toDeleteButtonMarkup = (rate) => {
+  if (rate.is_active) {
+    return '';
+  }
+
+  return `
+    <button
+      type="button"
+      class="btn btn-sm btn-outline-danger rates-delete-btn"
+      data-delete-rate="${rate.id}"
+      aria-label="Delete inactive rate ${rate.id}"
+      title="Delete inactive rate"
+    >${deleteIconSvg}</button>
   `;
 };
 
@@ -76,16 +93,17 @@ const buildRateRowsMarkup = (rates) => {
   return rates
     .map((rate) => `
       <tr>
-        <td>${MONTH_NAMES[rate.month - 1]} ${rate.year}</td>
-        <td>${toStatusBadge(rate.is_active)}</td>
-        <td class="admin-inline-actions">
+        <td data-label="Period">${MONTH_NAMES[rate.month - 1]} ${rate.year}</td>
+        <td data-label="Status">${toStatusBadge(rate.is_active)}</td>
+        <td data-label="Actions" class="admin-inline-actions rates-actions">
           <button
             type="button"
-            class="btn btn-sm btn-outline-primary"
+            class="btn btn-sm btn-outline-primary rates-edit-btn"
             data-edit-rate="${rate.id}"
             aria-label="Edit rate ${rate.id}"
             title="Edit"
           >${editIconSvg}</button>
+          ${toDeleteButtonMarkup(rate)}
           ${toToggleButtonMarkup(rate)}
         </td>
       </tr>
@@ -101,6 +119,32 @@ const setRateActive = async (rateId, isActive) => {
 
   if (error) {
     notifyError(error.message || 'Failed to update rate status.');
+    return false;
+  }
+
+  return true;
+};
+
+const deleteRate = async (rateId) => {
+  const rate = (state.rates ?? []).find((item) => item.id === rateId);
+
+  if (!rate) {
+    notifyError('Rate not found. Please refresh and try again.');
+    return false;
+  }
+
+  if (rate.is_active) {
+    notifyError('Only inactive rates can be deleted.');
+    return false;
+  }
+
+  const { error } = await supabase
+    .from('payment_rates')
+    .delete()
+    .eq('id', rateId);
+
+  if (error) {
+    notifyError(error.message || 'Failed to delete rate.');
     return false;
   }
 
@@ -214,6 +258,25 @@ export const renderRatesSection = async (content) => {
       }
 
       notifyInfo(nextActive ? 'Rate activated.' : 'Rate deactivated.');
+      await renderRatesSection(content);
+    });
+  });
+
+  content.querySelectorAll('[data-delete-rate]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const rateId = String(button.dataset.deleteRate);
+      const confirmed = window.confirm('Delete this inactive rate? This will also remove its obligations and related payments.');
+
+      if (!confirmed) {
+        return;
+      }
+
+      const deleted = await deleteRate(rateId);
+      if (!deleted) {
+        return;
+      }
+
+      notifyInfo('Inactive rate deleted.');
       await renderRatesSection(content);
     });
   });

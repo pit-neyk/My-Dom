@@ -16,6 +16,12 @@
   gap: 0.5rem;
 }
 
+.dom-navbar .brand-logo {
+  width: 1.5rem;
+  height: 1.5rem;
+  flex-shrink: 0;
+}
+
 .dom-navbar .brand-text {
   font-weight: 800;
   font-size: 1.125rem;

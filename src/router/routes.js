@@ -6,7 +6,6 @@ import { renderAdminPanelPage } from '../pages/admin/admin.js';
 import { renderAdminHomePage } from '../pages/admin-home/admin-home.js';
 import { renderPaymentsPage } from '../pages/payments/payments.js';
 import { renderDiscussionsPage } from '../pages/discussions/discussions.js';
-import { renderCreateSignalPage } from '../pages/create-signal/create-signal.js';
 
 export const routeMap = {
   '/': renderHomePage,
@@ -14,7 +13,6 @@ export const routeMap = {
   '/register': renderRegisterPage,
   '/dashboard': renderDashboardPage,
   '/discussions': renderDiscussionsPage,
-  '/create-signal': renderCreateSignalPage,
   '/payments': renderPaymentsPage,
   '/admin': renderAdminHomePage,
   '/admin/panel': renderAdminPanelPage
@@ -25,7 +23,6 @@ export const navigationLinks = [
   { href: '/login', label: 'Login' },
   { href: '/register', label: 'Register' },
   { href: '/dashboard', label: 'Dashboard' },
-  { href: '/create-signal', label: 'Create Signal' },
   { href: '/events', label: 'Events' },
   { href: '/payments', label: 'Payments' },
   { href: '/discussions', label: 'Discussions' },
@@ -39,7 +36,6 @@ export const routeTitles = {
   '/login': 'Login',
   '/register': 'Register',
   '/dashboard': 'Dashboard',
-  '/create-signal': 'Create Signal',
   '/events': 'Events',
   '/payments': 'Payments',
   '/discussions': 'Discussions',

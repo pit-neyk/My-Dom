@@ -8,6 +8,7 @@ import messageItemTemplate from './message-item.html?raw';
 import { fillTemplate } from '../../lib/template.js';
 
 let latestAdminHomeRenderId = 0;
+const ADMIN_DISCUSSIONS_LAST_SEEN_AT_KEY = 'dom-admin-discussions-last-seen-at';
 
 const formatCurrency = (value) =>
   new Intl.NumberFormat('bg-BG', {
@@ -41,6 +42,20 @@ const fetchMessages = async () =>
     .order('created_at', { ascending: false })
     .limit(10);
 
+const fetchUnreadDiscussionsCount = async () => {
+  const lastSeenAt = localStorage.getItem(ADMIN_DISCUSSIONS_LAST_SEEN_AT_KEY);
+
+  let query = supabase
+    .from('discussions')
+    .select('id', { count: 'exact', head: true });
+
+  if (lastSeenAt) {
+    query = query.gt('created_at', lastSeenAt);
+  }
+
+  return query;
+};
+
 const toPaymentsArray = (payments) => {
   if (Array.isArray(payments)) {
     return payments;
@@ -61,14 +76,22 @@ const loadAdminHomeData = async () => {
     propertiesRes,
     obligationsRes,
     financialsRes,
-    messagesRes
-  ] = await Promise.all([fetchProperties(), fetchObligations(), fetchBuildingFinancials(), fetchMessages()]);
+    messagesRes,
+    unreadDiscussionsRes
+  ] = await Promise.all([
+    fetchProperties(),
+    fetchObligations(),
+    fetchBuildingFinancials(),
+    fetchMessages(),
+    fetchUnreadDiscussionsCount()
+  ]);
 
   return {
     propertiesRes,
     obligationsRes,
     financialsRes,
-    messagesRes
+    messagesRes,
+    unreadDiscussionsRes
   };
 };
 
@@ -97,7 +120,8 @@ export const renderAdminHomePage = async (container) => {
     propertiesRes,
     obligationsRes,
     financialsRes,
-    messagesRes
+    messagesRes,
+    unreadDiscussionsRes
   } = await loadAdminHomeData();
 
   if (shouldRetryAfterEmptyData(propertiesRes.data, obligationsRes.data)) {
@@ -106,7 +130,8 @@ export const renderAdminHomePage = async (container) => {
       propertiesRes,
       obligationsRes,
       financialsRes,
-      messagesRes
+      messagesRes,
+      unreadDiscussionsRes
     } = await loadAdminHomeData());
   }
 
@@ -118,6 +143,7 @@ export const renderAdminHomePage = async (container) => {
   const { data: obligations, error: obligationsError } = obligationsRes;
   const { data: financials, error: financialsError } = financialsRes;
   const { data: messages, error: messagesError } = messagesRes;
+  const { count: unreadDiscussionsCount, error: unreadDiscussionsError } = unreadDiscussionsRes;
 
   if (propertiesError) {
     notifyError(`Failed to load properties overview: ${propertiesError.message}`);
@@ -137,6 +163,10 @@ export const renderAdminHomePage = async (container) => {
     notifyError(`Failed to load messages: ${messagesError.message}`);
   }
 
+  if (unreadDiscussionsError) {
+    notifyError(`Failed to load discussions notifications: ${unreadDiscussionsError.message}`);
+  }
+
   const safeProperties = properties ?? [];
   const safeObligations = obligations ?? [];
   const safeMessages = messages ?? [];
@@ -149,12 +179,24 @@ export const renderAdminHomePage = async (container) => {
 
   const collected = Number(financials?.total_collected ?? 0);
   const due = Number(financials?.total_due ?? 0);
+  const unreadDiscussions = Number(unreadDiscussionsCount ?? 0);
 
   container.querySelector('#admin-total-properties').textContent = String(safeProperties.length);
   container.querySelector('#admin-clear-properties').textContent = String(noDebt);
   container.querySelector('#admin-debt-properties').textContent = String(withDebt);
   container.querySelector('#admin-total-collected').textContent = formatCurrency(collected);
   container.querySelector('#admin-total-due').textContent = formatCurrency(due);
+
+  const discussionsBadge = container.querySelector('#admin-home-discussions-badge');
+  if (discussionsBadge) {
+    if (unreadDiscussions > 0) {
+      discussionsBadge.textContent = String(unreadDiscussions);
+      discussionsBadge.classList.remove('d-none');
+    } else {
+      discussionsBadge.textContent = '';
+      discussionsBadge.classList.add('d-none');
+    }
+  }
 
   const messagesContainer = container.querySelector('#admin-home-messages');
   if (!safeMessages.length) {

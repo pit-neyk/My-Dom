@@ -103,7 +103,7 @@ const buildSummaryHTML = (financials, objects) => {
   });
 };
 
-const buildObjectObligationsHTML = (obj) => {
+const buildObjectObligationsHTML = (obj, canPayActions) => {
   const obligations = [...(obj.payment_obligations ?? [])]
     .filter((obligation) => obligation.payment_rates?.is_active === true)
     .sort(
@@ -122,7 +122,7 @@ const buildObjectObligationsHTML = (obj) => {
     const isPaid = payment?.status === 'paid';
 
     const statusBadge = isPaid ? statusPaidTemplate : statusPendingTemplate;
-    const actionCell = isPaid
+    const actionCell = isPaid || !canPayActions
       ? actionEmptyTemplate
       : fillTemplate(actionPayTemplate, {
           obligationId: ob.id,
@@ -142,10 +142,6 @@ const buildObjectObligationsHTML = (obj) => {
     floor: obj.floor,
     rows
   });
-};
-
-const buildObligationsSectionHTML = (objects) => {
-  return objects.map(buildObjectObligationsHTML).join('');
 };
 
 const buildPropertiesOverviewHTML = (overview, objects) => {
@@ -307,6 +303,7 @@ export const renderDashboardPage = async (container) => {
   renderDashboardLoadingState(stateSlot);
 
   const userId = getEffectiveUserId();
+  const canPayActions = !(isAdmin() && isImpersonating());
 
   if (!userId) {
     navigateTo('/login');
@@ -369,7 +366,7 @@ export const renderDashboardPage = async (container) => {
 
   const obligationsContainer = document.createElement('div');
   obligationsContainer.id = 'obligations-container';
-  obligationsContainer.innerHTML = buildObligationsSectionHTML(safeObjects);
+  obligationsContainer.innerHTML = safeObjects.map((obj) => buildObjectObligationsHTML(obj, canPayActions)).join('');
 
   if (!safeObjects.length) {
     const emptyText = document.createElement('p');
@@ -380,5 +377,7 @@ export const renderDashboardPage = async (container) => {
 
   stateSlot.appendChild(obligationsContainer);
 
-  attachPayHandlers(container, userId, () => renderDashboardPage(container));
+  if (canPayActions) {
+    attachPayHandlers(container, userId, () => renderDashboardPage(container));
+  }
 };

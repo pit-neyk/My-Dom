@@ -2,3 +2,96 @@
   width: 14px;
   height: 14px;
 }
+
+.rates-table-wrap.admin-table-wrap {
+  max-height: none;
+  overflow: visible;
+}
+
+.rates-table-wrap.table-responsive {
+  overflow-x: visible;
+}
+
+.rates-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.rates-actions .rates-toggle-btn {
+  margin-left: auto;
+}
+
+@media (max-width: 576px) {
+  .rates-table-wrap table,
+  .rates-table-wrap thead,
+  .rates-table-wrap tbody,
+  .rates-table-wrap tr,
+  .rates-table-wrap td {
+    display: block;
+    width: 100%;
+  }
+
+  .rates-table-wrap thead {
+    display: none;
+  }
+
+  .rates-table-wrap tbody tr {
+    border: 1px solid var(--dom-border-light);
+    border-radius: var(--dom-radius);
+    padding: 0.625rem 0.75rem;
+    margin-bottom: 0.625rem;
+    background: var(--dom-bg);
+  }
+
+  .rates-table-wrap tbody tr:last-child {
+    margin-bottom: 0;
+  }
+
+  .rates-table-wrap td {
+    border: 0;
+    padding: 0.25rem 0;
+  }
+
+  .rates-table-wrap td:not(.rates-actions) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .rates-table-wrap td:not(.rates-actions)::before {
+    content: attr(data-label);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--dom-text-muted);
+  }
+
+  .rates-table-wrap td.rates-actions::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--dom-text-muted);
+  }
+
+  .rates-actions {
+    width: 100%;
+    min-width: 0;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    gap: 0.375rem;
+  }
+
+  .rates-actions .rates-toggle-btn {
+    margin-left: auto;
+    flex: 0 0 auto;
+  }
+}
