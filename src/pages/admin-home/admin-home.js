@@ -223,6 +223,11 @@ export const renderAdminHomePage = async (container) => {
     const applyFilter = () => {
       const filter = card.dataset.filter || 'all';
 
+      if (filter === 'all') {
+        navigateTo('/admin/panel?section=objects');
+        return;
+      }
+
       if (filter === 'clear') {
         navigateTo('/payments?dues=with_no_dues');
         return;
@@ -230,6 +235,16 @@ export const renderAdminHomePage = async (container) => {
 
       if (filter === 'debt') {
         navigateTo('/payments?dues=with_dues');
+        return;
+      }
+
+      if (filter === 'collected') {
+        navigateTo('/payments?dues=collected');
+        return;
+      }
+
+      if (filter === 'still-due') {
+        navigateTo('/payments?dues=still_due');
       }
     };
 

@@ -13,6 +13,7 @@ import { navigateTo } from '../../router/router.js';
 import { supabase } from '../../lib/supabase.js';
 import { notifyError, notifyInfo } from '../../components/toast/toast.js';
 import { fillTemplate } from '../../lib/template.js';
+import { enableTableColumnFilters } from '../../components/table-filters/table-filters.js';
 import messageItemTemplate from '../admin-home/message-item.html?raw';
 
 const MONTH_NAMES = [
@@ -376,6 +377,7 @@ export const renderDashboardPage = async (container) => {
   }
 
   stateSlot.appendChild(obligationsContainer);
+  enableTableColumnFilters(obligationsContainer, { skipColumns: ['actions'] });
 
   if (canPayActions) {
     attachPayHandlers(container, userId, () => renderDashboardPage(container));
