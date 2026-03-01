@@ -1,0 +1,104 @@
+.discussions-page {
+  animation: dom-fade-in 0.35s ease-out both;
+}
+
+.signals-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.signal-card {
+  border-radius: var(--dom-radius-lg);
+}
+
+.signal-card .signal-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.signal-meta {
+  font-size: 0.78rem;
+  color: var(--dom-text-muted);
+}
+
+.signal-description {
+  color: var(--dom-text-secondary);
+  white-space: pre-wrap;
+  margin-bottom: 1rem;
+}
+
+.signal-preview-wrap {
+  border-radius: var(--dom-radius);
+  overflow: hidden;
+  border: 1px solid var(--dom-border-light);
+  background: var(--dom-bg-subtle);
+}
+
+.signal-preview-image {
+  display: block;
+  width: 100%;
+  max-height: 340px;
+  object-fit: cover;
+}
+
+.signal-comments-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--dom-text-secondary);
+}
+
+.signal-comment-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.signal-comment-item {
+  border: 1px solid var(--dom-border-light);
+  border-radius: var(--dom-radius);
+  padding: 0.75rem;
+  background: var(--dom-bg);
+}
+
+.signal-comment-content {
+  white-space: pre-wrap;
+  color: var(--dom-text);
+  margin: 0.375rem 0 0;
+}
+
+.signal-attachments {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.signal-attachment-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  text-decoration: none;
+  background: var(--dom-info-light);
+  color: var(--dom-primary-dark);
+  border-radius: var(--dom-radius-pill);
+  padding: 0.3rem 0.6rem;
+}
+
+.signal-attachment-link:hover {
+  background: var(--dom-primary-lighter);
+  color: var(--dom-primary-dark);
+}
+
+.signal-comment-form {
+  border-top: 1px solid var(--dom-border-light);
+  margin-top: 1rem;
+  padding-top: 1rem;
+}
+
+.signal-empty {
+  text-align: center;
+  color: var(--dom-text-secondary);
+}

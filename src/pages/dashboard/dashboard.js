@@ -48,6 +48,9 @@ const fetchUserObjects = async (userId) =>
 const fetchBuildingFinancials = async () =>
   supabase.rpc('get_building_financials');
 
+const fetchBuildingPropertyOverview = async () =>
+  supabase.rpc('get_building_property_overview');
+
 const fetchMessages = async () =>
   supabase
     .from('mass_messages')
@@ -145,20 +148,26 @@ const buildObligationsSectionHTML = (objects) => {
   return objects.map(buildObjectObligationsHTML).join('');
 };
 
-const buildPropertiesOverviewHTML = (objects) => {
-  const totalProperties = objects.length;
-  const withObligations = objects.filter((obj) =>
-    (obj.payment_obligations ?? [])
-      .filter((obligation) => obligation.payment_rates?.is_active === true)
-      .some((obligation) => obligation.payments?.[0]?.status !== 'paid')
-  ).length;
+const buildPropertiesOverviewHTML = (overview, objects) => {
+  let totalProperties = Number(overview?.total_properties ?? 0);
+  let withObligations = Number(overview?.with_obligations ?? 0);
+  let withoutObligations = Number(overview?.without_obligations ?? 0);
 
-  const withoutObligations = totalProperties - withObligations;
+  if (!overview) {
+    totalProperties = objects.length;
+    withObligations = objects.filter((obj) =>
+      (obj.payment_obligations ?? [])
+        .filter((obligation) => obligation.payment_rates?.is_active === true)
+        .some((obligation) => obligation.payments?.[0]?.status !== 'paid')
+    ).length;
+
+    withoutObligations = totalProperties - withObligations;
+  }
 
   return `
     <div class="row g-3 mb-4">
       <div class="col-12 col-md-4">
-        <div class="card border-0 shadow-sm h-100 dashboard-summary-card">
+        <div class="card border-0 shadow-sm h-100 dashboard-summary-card" data-dashboard-filter="all">
           <div class="card-body">
             <p class="summary-label text-secondary">Properties</p>
             <p class="summary-amount text-secondary mb-0">${totalProperties}</p>
@@ -166,7 +175,7 @@ const buildPropertiesOverviewHTML = (objects) => {
         </div>
       </div>
       <div class="col-12 col-md-4">
-        <div class="card border-0 shadow-sm h-100 dashboard-summary-card">
+        <div class="card border-0 shadow-sm h-100 dashboard-summary-card dashboard-filter-card" data-dashboard-filter="debt" role="button" tabindex="0" aria-label="View properties with obligations">
           <div class="card-body">
             <p class="summary-label text-danger">With Obligations</p>
             <p class="summary-amount text-danger mb-0">${withObligations}</p>
@@ -174,7 +183,7 @@ const buildPropertiesOverviewHTML = (objects) => {
         </div>
       </div>
       <div class="col-12 col-md-4">
-        <div class="card border-0 shadow-sm h-100 dashboard-summary-card">
+        <div class="card border-0 shadow-sm h-100 dashboard-summary-card dashboard-filter-card" data-dashboard-filter="clear" role="button" tabindex="0" aria-label="View properties without obligations">
           <div class="card-body">
             <p class="summary-label text-success">Without Obligations</p>
             <p class="summary-amount text-success mb-0">${withoutObligations}</p>
@@ -183,6 +192,30 @@ const buildPropertiesOverviewHTML = (objects) => {
       </div>
     </div>
   `;
+};
+
+const attachPropertiesOverviewHandlers = (slot) => {
+  slot.querySelectorAll('.dashboard-filter-card').forEach((card) => {
+    const applyFilter = () => {
+      const filter = card.getAttribute('data-dashboard-filter');
+      if (filter === 'clear') {
+        navigateTo('/payments?dues=with_no_dues');
+        return;
+      }
+
+      if (filter === 'debt') {
+        navigateTo('/payments?dues=with_dues');
+      }
+    };
+
+    card.addEventListener('click', applyFilter);
+    card.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        applyFilter();
+      }
+    });
+  });
 };
 
 const buildMessagesHTML = (messages) => {
@@ -283,8 +316,14 @@ export const renderDashboardPage = async (container) => {
   const [
     { data: objects, error: objectsError },
     { data: financials, error: financialsError },
-    { data: messages, error: messagesError }
-  ] = await Promise.all([fetchUserObjects(userId), fetchBuildingFinancials(), fetchMessages()]);
+    { data: messages, error: messagesError },
+    { data: propertyOverview, error: propertyOverviewError }
+  ] = await Promise.all([
+    fetchUserObjects(userId),
+    fetchBuildingFinancials(),
+    fetchMessages(),
+    fetchBuildingPropertyOverview()
+  ]);
 
   if (objectsError) {
     notifyError(`Failed to load your obligations: ${objectsError.message}`);
@@ -300,12 +339,18 @@ export const renderDashboardPage = async (container) => {
     console.warn('Messages unavailable:', messagesError.message);
   }
 
+  if (propertyOverviewError) {
+    console.warn('Building property overview unavailable:', propertyOverviewError.message);
+  }
+
   const safeObjects = objects ?? [];
   const safeFinancials = financialsError ? null : financials;
   const safeMessages = messages ?? [];
+  const safePropertyOverview = propertyOverviewError ? null : propertyOverview;
 
   stateSlot.innerHTML = buildSummaryHTML(safeFinancials, safeObjects);
-  stateSlot.insertAdjacentHTML('beforeend', buildPropertiesOverviewHTML(safeObjects));
+  stateSlot.insertAdjacentHTML('beforeend', buildPropertiesOverviewHTML(safePropertyOverview, safeObjects));
+  attachPropertiesOverviewHandlers(stateSlot);
 
   const messagesSection = document.createElement('div');
   messagesSection.className = 'card border-0 shadow-sm mb-4';

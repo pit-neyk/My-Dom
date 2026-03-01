@@ -135,7 +135,4 @@ export const renderAdminPanelPage = async (container) => {
     return;
   }
 
-  if (isImpersonating()) {
-    notifyInfo(`User view mode is active for user ${getEffectiveUserId()}.`);
-  }
 };

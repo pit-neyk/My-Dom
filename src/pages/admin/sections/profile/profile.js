@@ -1,7 +1,8 @@
 import { supabase } from '../../../../lib/supabase.js';
-import { notifyError, notifyInfo } from '../../../../components/toast/toast.js';
-import { getCurrentSession } from '../../../../features/auth/auth.js';
+import { notifyError, notifyInfo, waitForToastVisibility } from '../../../../components/toast/toast.js';
+import { getCurrentSession, isAdmin, isImpersonating } from '../../../../features/auth/auth.js';
 import { state, loadInitialData } from '../../adminState.js';
+import { navigateTo } from '../../../../router/router.js';
 import template from './profile.html?raw';
 import './profile.css';
 
@@ -15,6 +16,11 @@ export const renderProfileSection = (content) => {
     .replace('{{phone}}', profile?.phone ?? '');
 
   const form = content.querySelector('#my-profile-form');
+  const cancelButton = content.querySelector('#my-profile-cancel-btn');
+
+  cancelButton?.addEventListener('click', () => {
+    navigateTo(isAdmin() && !isImpersonating() ? '/admin' : '/dashboard');
+  });
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -40,6 +46,7 @@ export const renderProfileSection = (content) => {
 
     notifyInfo('Profile updated.');
     await loadInitialData();
-    renderProfileSection(content);
+    await waitForToastVisibility();
+    navigateTo(isAdmin() && !isImpersonating() ? '/admin' : '/dashboard');
   });
 };

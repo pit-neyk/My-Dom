@@ -1,0 +1,26 @@
+<article class="card border-0 signal-card">
+  <div class="card-body">
+    <h3 class="signal-title">{{title}}</h3>
+    <p class="signal-meta mb-2">By {{author}} · {{createdAt}}</p>
+    {{signalPreviewHtml}}
+    <p class="signal-description">{{description}}</p>
+    {{signalAttachmentsHtml}}
+
+    <p class="signal-comments-title mb-2">Comments</p>
+    <div class="signal-comment-list">{{commentsHtml}}</div>
+
+    <form class="signal-comment-form row g-2" data-comment-form="{{signalId}}" novalidate>
+      <div class="col-12">
+        <label class="form-label" for="comment-content-{{signalId}}">Add comment</label>
+        <textarea id="comment-content-{{signalId}}" name="content" class="form-control" rows="3" required></textarea>
+      </div>
+      <div class="col-12">
+        <label class="form-label" for="comment-files-{{signalId}}">Attachments (optional)</label>
+        <input id="comment-files-{{signalId}}" name="attachments" class="form-control" type="file" multiple />
+      </div>
+      <div class="col-12 d-flex justify-content-end">
+        <button class="btn btn-sm btn-primary" type="submit">Send Comment</button>
+      </div>
+    </form>
+  </div>
+</article>

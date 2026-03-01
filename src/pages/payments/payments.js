@@ -64,7 +64,7 @@ const getDuesMode = () => {
   return dues === 'with_no_dues' ? 'with_no_dues' : 'with_dues';
 };
 
-const renderBase = (container, mode) => {
+const renderBase = (container, mode, readOnly = false) => {
   const title = mode === 'with_no_dues' ? 'Properties Without Obligations' : 'Properties With Obligations';
 
   container.innerHTML = template;
@@ -75,6 +75,15 @@ const renderBase = (container, mode) => {
 
   if (titleNode) {
     titleNode.textContent = title;
+  }
+
+  if (readOnly) {
+    const sidebar = container.querySelector('aside.col-12.col-lg-3');
+    sidebar?.remove();
+
+    const mainColumn = container.querySelector('.col-12.col-lg-9');
+    mainColumn?.classList.remove('col-lg-9');
+    mainColumn?.classList.add('col-lg-12');
   }
 
   withoutObligationsLink?.classList.toggle('btn-primary', mode === 'with_no_dues');
@@ -89,13 +98,11 @@ export const renderPaymentsPage = async (container) => {
     return;
   }
 
-  if (!isAdmin()) {
-    navigateTo('/dashboard');
-    return;
-  }
+  const adminMode = isAdmin();
+  const readOnlyMode = !adminMode;
 
   const mode = getDuesMode();
-  renderBase(container, mode);
+  renderBase(container, mode, readOnlyMode);
 
   const [
     { data: properties, error: propertiesError },
@@ -191,33 +198,53 @@ export const renderPaymentsPage = async (container) => {
   };
 
   if (mode === 'with_no_dues') {
-    setTableHead([
-      { label: '' },
-      { label: 'Property' },
-      { label: 'Floor' },
-      { label: 'Total Due', className: 'text-end' },
-      { label: 'Paid', className: 'text-end' },
-      { label: 'Left', className: 'text-end' }
-    ]);
+    setTableHead(
+      readOnlyMode
+        ? [
+            { label: 'Property' },
+            { label: 'Floor' },
+            { label: 'Total Due', className: 'text-end' },
+            { label: 'Paid', className: 'text-end' },
+            { label: 'Left', className: 'text-end' }
+          ]
+        : [
+            { label: '' },
+            { label: 'Property' },
+            { label: 'Floor' },
+            { label: 'Total Due', className: 'text-end' },
+            { label: 'Paid', className: 'text-end' },
+            { label: 'Left', className: 'text-end' }
+          ]
+    );
 
     tableBody.innerHTML = withNoDues.length
       ? withNoDues
-          .map((item) =>
-            fillTemplate(rowNoDuesTemplate, {
+          .map((item) => {
+            if (readOnlyMode) {
+              return `
+                <tr class="payment-property-row" data-property-id="${item.propertyId}">
+                  <td>${item.number}</td>
+                  <td>${item.floor}</td>
+                  <td class="text-end">${formatCurrency(item.totalDue)}</td>
+                  <td class="text-end">${formatCurrency(item.paid)}</td>
+                  <td class="text-end text-success">${formatCurrency(item.left)}</td>
+                </tr>
+              `;
+            }
+
+            return fillTemplate(rowNoDuesTemplate, {
               propertyId: item.propertyId,
               number: item.number,
               floor: item.floor,
               totalDue: formatCurrency(item.totalDue),
               paid: formatCurrency(item.paid),
               left: formatCurrency(item.left)
-            })
-          )
+            });
+          })
           .join('')
-      : fillTemplate(emptyRowTemplate, { colspan: 6, text: 'No properties without obligations.' });
+      : fillTemplate(emptyRowTemplate, { colspan: readOnlyMode ? 5 : 6, text: 'No properties without obligations.' });
 
-    tableBody.querySelectorAll('input[name="selected-property"]').forEach((radio) => {
-      radio.addEventListener('change', () => {
-        const propertyId = radio.value;
+    const showNoDuesDetails = (propertyId) => {
         const property = withNoDues.find((item) => item.propertyId === propertyId);
         if (!property) return;
 
@@ -250,37 +277,68 @@ export const renderPaymentsPage = async (container) => {
         const detailsHtml = fillTemplate(detailsPaidTemplate, { rows: detailsRows });
 
         showDetails(`Payments for ${property.number}`, detailsHtml);
+    };
+
+    if (readOnlyMode) {
+      tableBody.querySelectorAll('.payment-property-row[data-property-id]').forEach((row) => {
+        row.addEventListener('click', () => {
+          showNoDuesDetails(row.getAttribute('data-property-id'));
+        });
       });
-    });
+    } else {
+      tableBody.querySelectorAll('input[name="selected-property"]').forEach((radio) => {
+        radio.addEventListener('change', () => {
+          showNoDuesDetails(radio.value);
+        });
+      });
+    }
 
     return;
   }
 
-  setTableHead([
-    { label: '' },
-    { label: 'Property' },
-    { label: 'Floor' },
-    { label: 'Pending Total', className: 'text-end' },
-    { label: 'Pending Items', className: 'text-end' }
-  ]);
+  setTableHead(
+    readOnlyMode
+      ? [
+          { label: 'Property' },
+          { label: 'Floor' },
+          { label: 'Pending Total', className: 'text-end' },
+          { label: 'Pending Items', className: 'text-end' }
+        ]
+      : [
+          { label: '' },
+          { label: 'Property' },
+          { label: 'Floor' },
+          { label: 'Pending Total', className: 'text-end' },
+          { label: 'Pending Items', className: 'text-end' }
+        ]
+  );
 
   tableBody.innerHTML = withDues.length
     ? withDues
-        .map((item) =>
-          fillTemplate(rowWithDuesTemplate, {
+        .map((item) => {
+          if (readOnlyMode) {
+            return `
+              <tr class="payment-property-row" data-property-id="${item.propertyId}">
+                <td>${item.number}</td>
+                <td>${item.floor}</td>
+                <td class="text-end text-danger">${formatCurrency(item.due)}</td>
+                <td class="text-end">${item.pendingCount}</td>
+              </tr>
+            `;
+          }
+
+          return fillTemplate(rowWithDuesTemplate, {
             propertyId: item.propertyId,
             number: item.number,
             floor: item.floor,
             due: formatCurrency(item.due),
             pendingCount: item.pendingCount
-          })
-        )
+          });
+        })
         .join('')
-    : fillTemplate(emptyRowTemplate, { colspan: 5, text: 'No properties with obligations.' });
+    : fillTemplate(emptyRowTemplate, { colspan: readOnlyMode ? 4 : 5, text: 'No properties with obligations.' });
 
-  tableBody.querySelectorAll('input[name="selected-property"]').forEach((radio) => {
-    radio.addEventListener('change', () => {
-      const propertyId = radio.value;
+  const showWithDuesDetails = (propertyId) => {
       const property = propertiesById.get(propertyId);
       if (!property) return;
 
@@ -300,6 +358,38 @@ export const renderPaymentsPage = async (container) => {
             )
             .join('')
         : fillTemplate(emptyRowTemplate, { colspan: 4, text: 'No pending obligations.' });
+
+      if (readOnlyMode) {
+        const readOnlyRows = pendingObligations.length
+          ? pendingObligations
+              .map((obligation) => `
+                <tr>
+                  <td>${MONTH_NAMES[(obligation.month ?? 1) - 1]} ${obligation.year}</td>
+                  <td class="text-end">${formatCurrency(Number(obligation.rate ?? 0))}</td>
+                  <td><span class="badge bg-danger-subtle text-danger-emphasis">Pending</span></td>
+                </tr>
+              `)
+              .join('')
+          : fillTemplate(emptyRowTemplate, { colspan: 3, text: 'No pending obligations.' });
+
+        const readOnlyDetailsHtml = `
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>Period</th>
+                  <th class="text-end">Amount</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>${readOnlyRows}</tbody>
+            </table>
+          </div>
+        `;
+
+        showDetails(`Obligations for ${property.number}`, readOnlyDetailsHtml);
+        return;
+      }
 
       const detailsHtml = fillTemplate(detailsPendingTemplate, {
         rows: pendingRows,
@@ -371,6 +461,19 @@ export const renderPaymentsPage = async (container) => {
       }
 
       refreshSelection();
+  };
+
+  if (readOnlyMode) {
+    tableBody.querySelectorAll('.payment-property-row[data-property-id]').forEach((row) => {
+      row.addEventListener('click', () => {
+        showWithDuesDetails(row.getAttribute('data-property-id'));
+      });
     });
-  });
+  } else {
+    tableBody.querySelectorAll('input[name="selected-property"]').forEach((radio) => {
+      radio.addEventListener('change', () => {
+        showWithDuesDetails(radio.value);
+      });
+    });
+  }
 };

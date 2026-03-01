@@ -2,7 +2,7 @@ import template from './register.html?raw';
 import './register.css';
 import { registerWithEmail, isAuthenticated } from '../../features/auth/auth.js';
 import { navigateTo } from '../../router/router.js';
-import { notifyError, notifyInfo } from '../../components/toast/toast.js';
+import { notifyError, notifyInfo, waitForToastVisibility } from '../../components/toast/toast.js';
 
 export const renderRegisterPage = (container) => {
   if (isAuthenticated()) {
@@ -46,6 +46,7 @@ export const renderRegisterPage = (container) => {
 
     if (data.session) {
       notifyInfo('User created. Redirecting to dashboard...');
+      await waitForToastVisibility();
       navigateTo('/dashboard');
       return;
     }

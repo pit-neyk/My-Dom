@@ -26,6 +26,7 @@ In Netlify:
 
 - `/register` - email/password registration
 - `/login` - email/password sign in
+- `/discussions` - signals feed (create signals, comment, attach files)
 
 ## Admin account and panel
 

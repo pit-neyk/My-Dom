@@ -1,6 +1,7 @@
 import { Toast } from 'bootstrap';
 
 let toastContainer = null;
+export const TOAST_REDIRECT_DELAY_MS = 1000;
 
 const TYPE_CLASS_MAP = {
   info: 'text-bg-primary',
@@ -34,7 +35,7 @@ export const showToast = ({
   message,
   title = 'Notification',
   type = 'info',
-  delay = 5000
+  delay = 1000
 }) => {
   if (!message) {
     return;
@@ -84,9 +85,14 @@ export const showToast = ({
 };
 
 export const notifyError = (message, title = 'Error') => {
-  showToast({ message, title, type: 'error', delay: 7000 });
+  showToast({ message, title, type: 'error', delay: 1000 });
 };
 
 export const notifyInfo = (message, title = 'Info') => {
   showToast({ message, title, type: 'info' });
 };
+
+export const waitForToastVisibility = (delayMs = TOAST_REDIRECT_DELAY_MS) =>
+  new Promise((resolve) => {
+    window.setTimeout(resolve, delayMs);
+  });

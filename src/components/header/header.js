@@ -6,7 +6,7 @@ import { notifyError } from '../toast/toast.js';
 
 const headerSlot = () => document.getElementById('header-slot');
 const guestRouteSet = new Set(['/', '/login', '/register']);
-const authRouteSet = new Set(['/dashboard']);
+const authRouteSet = new Set(['/dashboard', '/create-signal', '/discussions']);
 
 const navigateToPath = (path) => {
   if (window.location.pathname !== path) {

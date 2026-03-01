@@ -1,5 +1,7 @@
 .dashboard-page {
+  width: 100%;
   max-width: 960px;
+  margin-inline: auto;
   animation: dom-fade-in 0.4s ease-out both;
 }
 
