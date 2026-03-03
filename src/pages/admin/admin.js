@@ -17,7 +17,6 @@ import {
 import { renderObjectsSection } from './sections/objects/objects.js';
 import { renderRatesSection } from './sections/rates/rates.js';
 import { renderPaymentObligationsSection } from './sections/payment-obligations/payment-obligations.js';
-import { renderEventsSection } from './sections/events/events.js';
 import { renderDocumentsSection } from './sections/documents/documents.js';
 import { renderMassMessagesSection } from './sections/messages/messages.js';
 import { renderAdminDiscussionsSection } from './sections/discussions/discussions.js';
@@ -69,9 +68,6 @@ const renderSection = async (sectionId, content) => {
       break;
     case 'payment-obligations':
       await renderPaymentObligationsSection(content);
-      break;
-    case 'events':
-      renderEventsSection(content);
       break;
     case 'documents':
       renderDocumentsSection(content);

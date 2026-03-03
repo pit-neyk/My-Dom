@@ -8,9 +8,16 @@ import rowTemplate from './documents-row.html?raw';
 import openIconSvg from '../../../../assets/icons/open.svg?raw';
 import deleteIconSvg from '../../../../assets/icons/delete.svg?raw';
 import { fillTemplate } from '../../../../lib/template.js';
+import { clearViewState, readViewState, writeViewState } from '../../../../lib/view-state.js';
 import './documents.css';
 
+const DOCUMENTS_VIEW_STATE_KEY = 'admin_documents_section_state';
+
 export const renderDocumentsSection = (content) => {
+  const viewState = readViewState(DOCUMENTS_VIEW_STATE_KEY, {
+    formOpen: false
+  });
+
   const rows = state.documents
     .map((doc) =>
       fillTemplate(rowTemplate, {
@@ -34,12 +41,20 @@ export const renderDocumentsSection = (content) => {
 
   content.prepend(documentFormPanel);
 
+  const syncOpenDocumentButtonVisibility = () => {
+    const isFormOpen = !documentFormPanel.classList.contains('d-none');
+    openDocumentFormButton.classList.toggle('d-none', isFormOpen);
+  };
+
   openDocumentFormButton.addEventListener('click', () => {
     form.reset();
     documentFormPanel.classList.remove('d-none');
+    syncOpenDocumentButtonVisibility();
+    writeViewState(DOCUMENTS_VIEW_STATE_KEY, { formOpen: true });
   });
 
   closeDocumentFormButton.addEventListener('click', () => {
+    clearViewState(DOCUMENTS_VIEW_STATE_KEY);
     renderDocumentsSection(content);
   });
 
@@ -79,6 +94,7 @@ export const renderDocumentsSection = (content) => {
 
     notifyInfo('Document uploaded and shared.');
     await loadInitialData();
+    clearViewState(DOCUMENTS_VIEW_STATE_KEY);
     renderDocumentsSection(content);
   });
 
@@ -120,7 +136,14 @@ export const renderDocumentsSection = (content) => {
 
       notifyInfo('Document deleted.');
       await loadInitialData();
+      clearViewState(DOCUMENTS_VIEW_STATE_KEY);
       renderDocumentsSection(content);
     });
   });
+
+  if (viewState.formOpen) {
+    documentFormPanel.classList.remove('d-none');
+  }
+
+  syncOpenDocumentButtonVisibility();
 };

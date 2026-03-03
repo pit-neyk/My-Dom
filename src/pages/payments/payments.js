@@ -1,16 +1,25 @@
 import './payments.css';
 import template from './payments.html?raw';
-import rowNoDuesTemplate from './row-no-dues.html?raw';
 import rowWithDuesTemplate from './row-with-dues.html?raw';
 import emptyRowTemplate from './empty-row.html?raw';
 import detailsPaidTemplate from './details-paid.html?raw';
 import detailsPaidRowTemplate from './details-paid-row.html?raw';
-import { getCurrentSession, isAdmin, isAuthenticated } from '../../features/auth/auth.js';
+import detailsPendingTemplate from './details-pending.html?raw';
+import detailsPendingRowTemplate from './details-pending-row.html?raw';
+import {
+  getCurrentSession,
+  isAdmin,
+  isAuthenticated,
+  isImpersonating
+} from '../../features/auth/auth.js';
 import { navigateTo } from '../../router/router.js';
 import { supabase } from '../../lib/supabase.js';
 import { notifyError, notifyInfo } from '../../components/toast/toast.js';
 import { fillTemplate } from '../../lib/template.js';
 import { enableTableColumnFilters } from '../../components/table-filters/table-filters.js';
+import { clearViewState, readViewState, writeViewState } from '../../lib/view-state.js';
+
+const PAYMENTS_VIEW_STATE_KEY = 'payments_page_state';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April',
@@ -26,19 +35,116 @@ const formatCurrency = (value) =>
     maximumFractionDigits: 2
   }).format(value ?? 0);
 
-const fetchProperties = async () =>
+const fetchAllProperties = async () =>
   supabase
     .from('properties')
     .select('id,number,floor')
     .order('number');
 
-const fetchObligations = async () =>
+const fetchAllActiveObligations = async () =>
   supabase
     .from('payment_obligations')
     .select('id,year,month,rate,independent_object_id,properties(number,floor),payments(id,status,date),payment_rates!inner(is_active)')
     .eq('payment_rates.is_active', true)
     .order('year', { ascending: false })
     .order('month', { ascending: false });
+
+const isMissingPropertyContactsTableError = (error) =>
+  error?.code === 'PGRST205' || error?.code === '42P01' || error?.status === 404;
+
+const fetchPropertiesByOwnerUserId = async (userId) =>
+  supabase
+    .from('properties')
+    .select('id,number,floor')
+    .eq('owner_user_id', userId)
+    .order('number');
+
+const fetchPropertiesByIds = async (propertyIds) => {
+  if (!propertyIds.length) {
+    return { data: [], error: null };
+  }
+
+  return supabase
+    .from('properties')
+    .select('id,number,floor')
+    .in('id', propertyIds)
+    .order('number');
+};
+
+const fetchOwnerContactPropertyIds = async (userEmail) => {
+  const normalizedEmail = String(userEmail ?? '').trim();
+  if (!normalizedEmail) {
+    return { data: [], error: null };
+  }
+
+  const { data, error } = await supabase
+    .from('property_contacts')
+    .select('property_id')
+    .eq('contact_type', 'owner')
+    .ilike('email', normalizedEmail);
+
+  if (error) {
+    if (isMissingPropertyContactsTableError(error)) {
+      return { data: [], error: null };
+    }
+
+    return { data: null, error };
+  }
+
+  const propertyIds = Array.from(
+    new Set((data ?? []).map((row) => row?.property_id).filter(Boolean))
+  );
+
+  return { data: propertyIds, error: null };
+};
+
+const fetchUserScopedProperties = async (userId, userEmail) => {
+  const ownedRes = await fetchPropertiesByOwnerUserId(userId);
+  if (ownedRes.error) {
+    return ownedRes;
+  }
+
+  const owned = ownedRes.data ?? [];
+  const ownedIdSet = new Set(owned.map((item) => item.id));
+
+  const contactIdsRes = await fetchOwnerContactPropertyIds(userEmail);
+  if (contactIdsRes.error) {
+    return { data: null, error: contactIdsRes.error };
+  }
+
+  const additionalIds = (contactIdsRes.data ?? []).filter((id) => !ownedIdSet.has(id));
+  if (!additionalIds.length) {
+    return { data: owned, error: null };
+  }
+
+  const additionalRes = await fetchPropertiesByIds(additionalIds);
+  if (additionalRes.error) {
+    return additionalRes;
+  }
+
+  const merged = [...owned, ...(additionalRes.data ?? [])].sort((left, right) =>
+    String(left.number ?? '').localeCompare(String(right.number ?? ''), undefined, {
+      numeric: true,
+      sensitivity: 'base'
+    })
+  );
+
+  return { data: merged, error: null };
+};
+
+const fetchObligationsForPropertyIds = async (propertyIds) => {
+  if (!propertyIds.length) {
+    return { data: [], error: null };
+  }
+
+  return supabase
+    .from('payment_obligations')
+    .select('id,year,month,rate,independent_object_id,properties(number,floor),payments(id,status,date),payment_rates!inner(is_active)')
+    .eq('payment_rates.is_active', true)
+    .in('independent_object_id', propertyIds)
+    .order('year', { ascending: false })
+    .order('month', { ascending: false });
+};
 
 const fetchBuildingFinancials = async () =>
   supabase.rpc('get_building_financials');
@@ -57,6 +163,8 @@ const toPaymentsArray = (payments) => {
 
 const isObligationPaid = (obligation) =>
   toPaymentsArray(obligation.payments).some((payment) => payment?.status === 'paid');
+
+const hasPositiveAmount = (obligation) => Number(obligation?.rate ?? 0) > 0;
 
 const getDuesMode = () => {
   const dues = new URLSearchParams(window.location.search).get('dues');
@@ -111,17 +219,27 @@ export const renderPaymentsPage = async (container) => {
     return;
   }
 
-  const adminMode = isAdmin();
+  const adminMode = isAdmin() && !isImpersonating();
   const readOnlyMode = !adminMode;
 
   const mode = getDuesMode();
+  const viewState = readViewState(PAYMENTS_VIEW_STATE_KEY, {
+    mode: '',
+    selectedPropertyId: ''
+  });
+
+  if (viewState.mode !== mode) {
+    clearViewState(PAYMENTS_VIEW_STATE_KEY);
+  }
+
+  const persistedSelectedPropertyId = viewState.mode === mode ? String(viewState.selectedPropertyId ?? '') : '';
   renderBase(container, mode, readOnlyMode);
 
   const [
     { data: properties, error: propertiesError },
     { data: obligations, error: obligationsError },
     { data: financials, error: financialsError }
-  ] = await Promise.all([fetchProperties(), fetchObligations(), fetchBuildingFinancials()]);
+  ] = await Promise.all([fetchAllProperties(), fetchAllActiveObligations(), fetchBuildingFinancials()]);
 
   if (propertiesError || obligationsError) {
     notifyError(`Failed to load payments page data: ${propertiesError?.message || obligationsError?.message}`);
@@ -172,7 +290,11 @@ export const renderPaymentsPage = async (container) => {
     .map((property) => {
       const totals = propertyTotals.get(property.id) ?? { paid: 0, due: 0 };
       const periods = safeObligations
-        .filter((obligation) => obligation.independent_object_id === property.id && !isObligationPaid(obligation))
+        .filter((obligation) =>
+          obligation.independent_object_id === property.id
+          && !isObligationPaid(obligation)
+          && hasPositiveAmount(obligation)
+        )
         .sort((a, b) => (b.year - a.year) || (b.month - a.month))
         .map((obligation) => `${MONTH_NAMES[(obligation.month ?? 1) - 1]} ${obligation.year}`)
         .join(', ');
@@ -188,6 +310,10 @@ export const renderPaymentsPage = async (container) => {
 
   const collectedObligations = safeObligations
     .flatMap((obligation) => {
+      if (!hasPositiveAmount(obligation)) {
+        return [];
+      }
+
       const paidPayment = toPaymentsArray(obligation.payments)
         .find((payment) => payment?.status === 'paid');
 
@@ -277,6 +403,7 @@ export const renderPaymentsPage = async (container) => {
 
     detailPanel.classList.add('d-none');
     detailContent.innerHTML = '';
+    clearViewState(PAYMENTS_VIEW_STATE_KEY);
     enableMainTableFilters();
     return;
   }
@@ -312,58 +439,40 @@ export const renderPaymentsPage = async (container) => {
 
     detailPanel.classList.add('d-none');
     detailContent.innerHTML = '';
+    clearViewState(PAYMENTS_VIEW_STATE_KEY);
     enableMainTableFilters();
     return;
   }
 
   if (mode === 'with_no_dues') {
-    setTableHead(
-      readOnlyMode
-        ? [
-            { label: 'Property' },
-            { label: 'Floor' },
-            { label: 'Total Due', className: 'text-end' },
-            { label: 'Paid', className: 'text-end' },
-            { label: 'Left', className: 'text-end' }
-          ]
-        : [
-            { label: '' },
-            { label: 'Property' },
-            { label: 'Floor' },
-            { label: 'Total Due', className: 'text-end' },
-            { label: 'Paid', className: 'text-end' },
-            { label: 'Left', className: 'text-end' }
-          ]
-    );
+    setTableHead([
+      { label: 'Property' },
+      { label: 'Floor' },
+      { label: 'Total Due', className: 'text-end' },
+      { label: 'Paid', className: 'text-end' },
+      { label: 'Left', className: 'text-end' }
+    ]);
 
     tableBody.innerHTML = withNoDues.length
       ? withNoDues
-          .map((item) => {
-            if (readOnlyMode) {
-              return `
-                <tr class="payment-property-row" data-property-id="${item.propertyId}">
-                  <td>${item.number}</td>
-                  <td>${item.floor}</td>
-                  <td class="text-end">${formatCurrency(item.totalDue)}</td>
-                  <td class="text-end">${formatCurrency(item.paid)}</td>
-                  <td class="text-end text-success">${formatCurrency(item.left)}</td>
-                </tr>
-              `;
-            }
-
-            return fillTemplate(rowNoDuesTemplate, {
-              propertyId: item.propertyId,
-              number: item.number,
-              floor: item.floor,
-              totalDue: formatCurrency(item.totalDue),
-              paid: formatCurrency(item.paid),
-              left: formatCurrency(item.left)
-            });
-          })
+          .map((item) => `
+            <tr class="payment-property-row" data-property-id="${item.propertyId}">
+              <td>${item.number}</td>
+              <td>${item.floor}</td>
+              <td class="text-end">${formatCurrency(item.totalDue)}</td>
+              <td class="text-end">${formatCurrency(item.paid)}</td>
+              <td class="text-end text-success">${formatCurrency(item.left)}</td>
+            </tr>
+          `)
           .join('')
-      : fillTemplate(emptyRowTemplate, { colspan: readOnlyMode ? 5 : 6, text: 'No properties without obligations.' });
+      : fillTemplate(emptyRowTemplate, { colspan: 5, text: 'No properties without obligations.' });
 
     const showNoDuesDetails = (propertyId) => {
+        writeViewState(PAYMENTS_VIEW_STATE_KEY, {
+          mode,
+          selectedPropertyId: String(propertyId ?? '')
+        });
+
         const property = withNoDues.find((item) => item.propertyId === propertyId);
         if (!property) return;
 
@@ -372,6 +481,7 @@ export const renderPaymentsPage = async (container) => {
           .flatMap((obligation) =>
             toPaymentsArray(obligation.payments)
               .filter((payment) => payment?.status === 'paid')
+              .filter(() => hasPositiveAmount(obligation))
               .map((payment) => ({
                 month: obligation.month,
                 year: obligation.year,
@@ -398,18 +508,26 @@ export const renderPaymentsPage = async (container) => {
         showDetails(`Payments for ${property.number}`, detailsHtml);
     };
 
-    if (readOnlyMode) {
-      tableBody.querySelectorAll('.payment-property-row[data-property-id]').forEach((row) => {
-        row.addEventListener('click', () => {
+    tableBody.querySelectorAll('.payment-property-row[data-property-id]').forEach((row) => {
+      row.addEventListener('click', () => {
+        showNoDuesDetails(row.getAttribute('data-property-id'));
+      });
+      row.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
           showNoDuesDetails(row.getAttribute('data-property-id'));
-        });
+        }
       });
-    } else {
-      tableBody.querySelectorAll('input[name="selected-property"]').forEach((radio) => {
-        radio.addEventListener('change', () => {
-          showNoDuesDetails(radio.value);
-        });
-      });
+      row.setAttribute('tabindex', '0');
+      row.setAttribute('role', 'button');
+      row.setAttribute('aria-label', `Show payments for property ${row.children[0]?.textContent ?? ''}`);
+    });
+
+    if (persistedSelectedPropertyId) {
+      const persistedRow = tableBody.querySelector(`[data-property-id="${CSS.escape(persistedSelectedPropertyId)}"]`);
+      if (persistedRow) {
+        showNoDuesDetails(persistedSelectedPropertyId);
+      }
     }
 
     enableMainTableFilters();
@@ -417,70 +535,43 @@ export const renderPaymentsPage = async (container) => {
   }
 
   setTableHead(
-    readOnlyMode
-      ? [
-          { label: 'Property' },
-          { label: 'Floor' },
-          { label: 'Period' },
-          { label: 'Pending Total', className: 'text-end' }
-        ]
-      : [
-          { label: '', className: 'text-center' },
-          { label: 'Property' },
-          { label: 'Floor' },
-          { label: 'Period' },
-          { label: 'Pending Total', className: 'text-end' }
-        ]
+    [
+      { label: 'Property' },
+      { label: 'Floor' },
+      { label: 'Period' },
+      { label: 'Pending Total', className: 'text-end' }
+    ]
   );
-
-  if (!readOnlyMode) {
-    const headerCheckbox = document.createElement('input');
-    headerCheckbox.type = 'checkbox';
-    headerCheckbox.className = 'form-check-input';
-    headerCheckbox.id = 'select-all-due-properties';
-    headerCheckbox.setAttribute('aria-label', 'Select all properties with obligations');
-
-    const firstHeaderCell = tableHead.querySelector('th');
-    if (firstHeaderCell) {
-      firstHeaderCell.textContent = '';
-      firstHeaderCell.classList.add('text-center');
-      firstHeaderCell.appendChild(headerCheckbox);
-    }
-  }
 
   tableBody.innerHTML = withDues.length
     ? withDues
-        .map((item) => {
-          if (readOnlyMode) {
-            return `
-              <tr class="payment-property-row" data-property-id="${item.propertyId}">
-                <td>${item.number}</td>
-                <td>${item.floor}</td>
-                <td>${item.periods}</td>
-                <td class="text-end text-danger">${formatCurrency(item.due)}</td>
-              </tr>
-            `;
-          }
-
-          return fillTemplate(rowWithDuesTemplate, {
-            propertyId: item.propertyId,
-            number: item.number,
-            floor: item.floor,
-            periods: item.periods,
-            due: formatCurrency(item.due)
-          });
-        })
+        .map((item) => fillTemplate(rowWithDuesTemplate, {
+          propertyId: item.propertyId,
+          number: item.number,
+          floor: item.floor,
+          periods: item.periods,
+          due: formatCurrency(item.due)
+        }))
         .join('')
-    : fillTemplate(emptyRowTemplate, { colspan: readOnlyMode ? 4 : 5, text: 'No properties with obligations.' });
+    : fillTemplate(emptyRowTemplate, { colspan: 4, text: 'No properties with obligations.' });
 
   const showReadOnlyWithDuesDetails = (propertyId) => {
+      writeViewState(PAYMENTS_VIEW_STATE_KEY, {
+        mode,
+        selectedPropertyId: String(propertyId ?? '')
+      });
+
       const property = propertiesById.get(propertyId);
       if (!property) {
         return;
       }
 
       const pendingObligations = safeObligations
-        .filter((obligation) => obligation.independent_object_id === propertyId && !isObligationPaid(obligation))
+        .filter((obligation) =>
+          obligation.independent_object_id === propertyId
+          && !isObligationPaid(obligation)
+          && hasPositiveAmount(obligation)
+        )
         .sort((a, b) => (b.year - a.year) || (b.month - a.month));
 
       const readOnlyRows = pendingObligations.length
@@ -513,103 +604,180 @@ export const renderPaymentsPage = async (container) => {
       showDetails(`Obligations for ${property.number}`, readOnlyDetailsHtml);
   };
 
-  const showAdminWithDuesSelectionPanel = (propertyIds) => {
-      const selectedPropertyIds = propertyIds ?? [];
+  const getPendingObligationsForProperty = (propertyId) =>
+    safeObligations
+      .filter((obligation) =>
+        obligation.independent_object_id === propertyId
+        && !isObligationPaid(obligation)
+        && hasPositiveAmount(obligation)
+      )
+      .sort((a, b) => (b.year - a.year) || (b.month - a.month));
 
-      if (!selectedPropertyIds.length) {
-        detailPanel.classList.add('d-none');
-        detailContent.innerHTML = '';
-        return;
-      }
-
-      const selectedPropertyIdSet = new Set(selectedPropertyIds);
-      const pendingObligations = safeObligations
-        .filter((obligation) => selectedPropertyIdSet.has(obligation.independent_object_id) && !isObligationPaid(obligation));
-
-      const totalAmount = pendingObligations.reduce((sum, obligation) => sum + Number(obligation.rate ?? 0), 0);
-
-      detailTitle.textContent = '';
-      detailTitle.classList.add('d-none');
-      detailContent.innerHTML = `
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-          <span class="fw-semibold">Total Amount: ${formatCurrency(totalAmount)}</span>
-          <button type="button" class="btn btn-sm btn-primary" id="pay-selected-property-obligations" ${pendingObligations.length ? '' : 'disabled'}>Pay Selected</button>
-        </div>
-      `;
-      detailPanel.classList.remove('d-none');
-
-      const paySelectedButton = container.querySelector('#pay-selected-property-obligations');
-      if (!paySelectedButton) {
-        return;
-      }
-
-      paySelectedButton.addEventListener('click', async () => {
-        if (!pendingObligations.length) {
-          return;
-        }
-
-        const userId = getCurrentSession()?.user?.id ?? null;
-        const today = new Date().toISOString().split('T')[0];
-        const payload = pendingObligations.map((obligation) => ({
-          payment_obligation_id: obligation.id,
-          status: 'paid',
-          date: today,
-          marked_by_user_id: userId
-        }));
-
-        paySelectedButton.disabled = true;
-        const { error } = await supabase.from('payments').upsert(payload, { onConflict: 'payment_obligation_id' });
-
-        if (error) {
-          notifyError(`Failed to pay selected obligations: ${error.message}`);
-          paySelectedButton.disabled = false;
-          return;
-        }
-
-        notifyInfo('Selected obligations marked as paid.');
-        renderPaymentsPage(container);
-      });
-  };
-
-  if (readOnlyMode) {
-    tableBody.querySelectorAll('.payment-property-row[data-property-id]').forEach((row) => {
-      row.addEventListener('click', () => {
-        showReadOnlyWithDuesDetails(row.getAttribute('data-property-id'));
-      });
+  const showAdminWithDuesDetails = (propertyId) => {
+    writeViewState(PAYMENTS_VIEW_STATE_KEY, {
+      mode,
+      selectedPropertyId: String(propertyId ?? '')
     });
-  } else {
-    const propertyCheckboxes = Array.from(tableBody.querySelectorAll('input[name="selected-property"]'));
-    const selectAllProperties = container.querySelector('#select-all-due-properties');
 
-    const getSelectedPropertyIds = () =>
-      propertyCheckboxes
-        .filter((checkbox) => checkbox.checked)
-        .map((checkbox) => checkbox.value);
+    const property = propertiesById.get(propertyId);
+    if (!property) {
+      return;
+    }
 
-    const refreshPropertySelection = () => {
-      const selectedIds = getSelectedPropertyIds();
+    const pendingObligations = getPendingObligationsForProperty(propertyId);
 
-      if (selectAllProperties) {
-        selectAllProperties.checked = propertyCheckboxes.length > 0 && selectedIds.length === propertyCheckboxes.length;
-        selectAllProperties.indeterminate = selectedIds.length > 0 && selectedIds.length < propertyCheckboxes.length;
+    const rows = pendingObligations.length
+      ? pendingObligations
+          .map((obligation) =>
+            fillTemplate(detailsPendingRowTemplate, {
+              id: obligation.id,
+              amountRaw: Number(obligation.rate ?? 0),
+              period: `${MONTH_NAMES[(obligation.month ?? 1) - 1]} ${obligation.year}`,
+              amount: formatCurrency(Number(obligation.rate ?? 0))
+            })
+          )
+          .join('')
+      : fillTemplate(emptyRowTemplate, { colspan: 4, text: 'No pending obligations.' });
+
+    showDetails(
+      `Obligations for ${property.number}`,
+      fillTemplate(detailsPendingTemplate, {
+        rows,
+        disabled: pendingObligations.length ? '' : 'disabled'
+      })
+    );
+
+    const selectAll = container.querySelector('#select-all-property-obligations');
+    const selectedAmountNode = container.querySelector('#selected-obligations-total-amount');
+    const paySelectedButton = container.querySelector('#pay-selected-property-obligations');
+    const obligationCheckboxes = Array.from(container.querySelectorAll('[data-obligation-id]'));
+
+    const updateSelectionState = () => {
+      const selectedCheckboxes = obligationCheckboxes.filter((checkbox) => checkbox.checked);
+      const selectedTotal = selectedCheckboxes
+        .reduce((sum, checkbox) => sum + Number(checkbox.getAttribute('data-obligation-amount') ?? 0), 0);
+
+      if (selectedAmountNode) {
+        selectedAmountNode.textContent = formatCurrency(selectedTotal);
       }
 
-      showAdminWithDuesSelectionPanel(selectedIds);
+      if (paySelectedButton) {
+        paySelectedButton.disabled = selectedCheckboxes.length === 0;
+      }
+
+      if (selectAll) {
+        selectAll.checked = obligationCheckboxes.length > 0 && selectedCheckboxes.length === obligationCheckboxes.length;
+        selectAll.indeterminate = selectedCheckboxes.length > 0 && selectedCheckboxes.length < obligationCheckboxes.length;
+      }
     };
 
-    propertyCheckboxes.forEach((checkbox) => {
-      checkbox.addEventListener('change', refreshPropertySelection);
+    obligationCheckboxes.forEach((checkbox) => {
+      checkbox.addEventListener('change', updateSelectionState);
     });
 
-    selectAllProperties?.addEventListener('change', () => {
-      const shouldCheck = selectAllProperties.checked;
-      propertyCheckboxes.forEach((checkbox) => {
+    selectAll?.addEventListener('change', () => {
+      const shouldCheck = selectAll.checked;
+      obligationCheckboxes.forEach((checkbox) => {
         checkbox.checked = shouldCheck;
       });
-      refreshPropertySelection();
+      updateSelectionState();
     });
 
-    refreshPropertySelection();
+    paySelectedButton?.addEventListener('click', async () => {
+      const selectedObligationIds = obligationCheckboxes
+        .filter((checkbox) => checkbox.checked)
+        .map((checkbox) => checkbox.getAttribute('data-obligation-id'));
+
+      if (!selectedObligationIds.length) {
+        return;
+      }
+
+      const obligationsToPay = pendingObligations.filter((obligation) => selectedObligationIds.includes(obligation.id));
+      if (!obligationsToPay.length) {
+        return;
+      }
+
+      const userId = getCurrentSession()?.user?.id ?? null;
+      const today = new Date().toISOString().split('T')[0];
+      const payload = obligationsToPay.map((obligation) => ({
+        payment_obligation_id: obligation.id,
+        status: 'paid',
+        date: today,
+        marked_by_user_id: userId
+      }));
+
+      paySelectedButton.disabled = true;
+      const { error } = await supabase.from('payments').upsert(payload, { onConflict: 'payment_obligation_id' });
+
+      if (error) {
+        notifyError(`Failed to pay selected obligations: ${error.message}`);
+        updateSelectionState();
+        return;
+      }
+
+      notifyInfo('Selected obligations marked as paid.');
+      renderPaymentsPage(container);
+    });
+
+    updateSelectionState();
+  };
+
+  tableBody.querySelectorAll('.payment-property-row[data-property-id]').forEach((row) => {
+    const setActiveRow = () => {
+      tableBody.querySelectorAll('.payment-property-row-active').forEach((activeRow) => {
+        activeRow.classList.remove('payment-property-row-active');
+      });
+      row.classList.add('payment-property-row-active');
+    };
+
+    const showDetailsForRow = () => {
+      const propertyId = row.getAttribute('data-property-id');
+      if (!propertyId) {
+        return;
+      }
+
+      setActiveRow();
+
+      if (readOnlyMode) {
+        showReadOnlyWithDuesDetails(propertyId);
+        return;
+      }
+
+      showAdminWithDuesDetails(propertyId);
+    };
+
+    row.addEventListener('click', showDetailsForRow);
+    row.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        showDetailsForRow();
+      }
+    });
+    row.setAttribute('tabindex', '0');
+    row.setAttribute('role', 'button');
+    row.setAttribute('aria-label', `Show obligations for property ${row.children[0]?.textContent ?? ''}`);
+  });
+
+  if (persistedSelectedPropertyId) {
+    const persistedRow = tableBody.querySelector(`[data-property-id="${CSS.escape(persistedSelectedPropertyId)}"]`);
+    if (persistedRow) {
+      const persistedDetailsHandler = () => {
+        const propertyId = persistedRow.getAttribute('data-property-id');
+        if (!propertyId) {
+          return;
+        }
+
+        persistedRow.classList.add('payment-property-row-active');
+
+        if (readOnlyMode) {
+          showReadOnlyWithDuesDetails(propertyId);
+        } else {
+          showAdminWithDuesDetails(propertyId);
+        }
+      };
+
+      persistedDetailsHandler();
+    }
   }
 
   enableMainTableFilters();

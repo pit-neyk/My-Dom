@@ -6,7 +6,10 @@ import { state, loadObligationsData, MONTH_NAMES } from '../../adminState.js';
 import template from './rates.html?raw';
 import editIconSvg from '../../../../assets/icons/edit.svg?raw';
 import deleteIconSvg from '../../../../assets/icons/delete.svg?raw';
+import { clearViewState, readViewState, writeViewState } from '../../../../lib/view-state.js';
 import './rates.css';
+
+const RATES_VIEW_STATE_KEY = 'admin_rates_section_state';
 
 const sortByPeriodDesc = (left, right) => {
   if (left.year !== right.year) {
@@ -111,6 +114,15 @@ const buildRateRowsMarkup = (rates) => {
     .join('');
 };
 
+const buildMonthOptionsMarkup = (selectedMonth) =>
+  MONTH_NAMES
+    .map((monthName, index) => {
+      const monthValue = index + 1;
+      const selected = monthValue === selectedMonth ? ' selected' : '';
+      return `<option value="${monthValue}"${selected}>${monthName}</option>`;
+    })
+    .join('');
+
 const setRateActive = async (rateId, isActive) => {
   const { error } = await supabase
     .from('payment_rates')
@@ -192,6 +204,10 @@ const createRateObligationsForAllProperties = async (rate) => {
 };
 
 export const renderRatesSection = async (content) => {
+  const viewState = readViewState(RATES_VIEW_STATE_KEY, {
+    createPanelOpen: false
+  });
+
   content.textContent = '';
   const loadingWrap = document.createElement('div');
   loadingWrap.className = 'd-flex align-items-center gap-2 text-secondary py-5 justify-content-center';
@@ -217,11 +233,12 @@ export const renderRatesSection = async (content) => {
   }
 
   const rows = buildRateRowsMarkup(buildRates());
+  const defaultMonth = new Date().getMonth() + 1;
 
   content.innerHTML = template
     .replace('{{rows}}', rows)
     .replace('{{defaultYear}}', String(new Date().getFullYear()))
-    .replace('{{defaultMonth}}', String(new Date().getMonth() + 1));
+    .replace('{{monthOptions}}', buildMonthOptionsMarkup(defaultMonth));
 
   enableTableColumnFilters(content, { skipColumns: ['actions'] });
 
@@ -230,6 +247,7 @@ export const renderRatesSection = async (content) => {
 
   const hideCreatePanel = () => {
     rateCreatePanel.classList.add('d-none');
+    clearViewState(RATES_VIEW_STATE_KEY);
   };
 
   content.querySelector('#open-rate-create-btn')?.addEventListener('click', () => {
@@ -237,6 +255,7 @@ export const renderRatesSection = async (content) => {
     rateCreateForm.elements.year.value = String(new Date().getFullYear());
     rateCreateForm.elements.month.value = String(new Date().getMonth() + 1);
     rateCreatePanel.classList.remove('d-none');
+    writeViewState(RATES_VIEW_STATE_KEY, { createPanelOpen: true });
   });
 
   content.querySelector('#close-rate-create-btn')?.addEventListener('click', hideCreatePanel);
@@ -296,6 +315,7 @@ export const renderRatesSection = async (content) => {
     const existingRate = getRateByPeriod(year, month);
     if (existingRate) {
       notifyInfo('Rate already exists for this period.');
+      clearViewState(RATES_VIEW_STATE_KEY);
       navigateTo(`/admin/panel?section=payment-obligations&rateId=${encodeURIComponent(existingRate.id)}`);
       return;
     }
@@ -311,6 +331,11 @@ export const renderRatesSection = async (content) => {
     }
 
     notifyInfo('Rate created.');
+    clearViewState(RATES_VIEW_STATE_KEY);
     navigateTo(`/admin/panel?section=payment-obligations&rateId=${encodeURIComponent(rate.id)}`);
   });
+
+  if (viewState.createPanelOpen) {
+    rateCreatePanel.classList.remove('d-none');
+  }
 };

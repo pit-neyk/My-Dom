@@ -37,6 +37,14 @@
   background: rgba(99, 102, 241, 0.04);
 }
 
+.payment-property-row-active {
+  background: var(--dom-bg-subtle);
+}
+
+.payment-property-row-active td {
+  font-weight: 600;
+}
+
 .payment-details-panel {
   border-top: 1px solid var(--dom-border-light);
   padding-top: 1rem;

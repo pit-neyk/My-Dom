@@ -6,6 +6,17 @@ import { navigateTo } from '../../../../router/router.js';
 import template from './profile.html?raw';
 import './profile.css';
 
+const normalizeText = (value) => {
+  const trimmed = String(value ?? '').trim();
+  return trimmed === '' ? null : trimmed;
+};
+
+const hasProfileChanges = (nextPayload, currentProfile) => (
+  normalizeText(nextPayload.full_name) !== normalizeText(currentProfile.full_name)
+  || normalizeText(nextPayload.email) !== normalizeText(currentProfile.email)
+  || normalizeText(nextPayload.phone) !== normalizeText(currentProfile.phone)
+);
+
 export const renderProfileSection = (content) => {
   const userId = getCurrentSession()?.user?.id;
   const profile = state.profiles.find((item) => item.user_id === userId);
@@ -16,6 +27,7 @@ export const renderProfileSection = (content) => {
     .replace('{{phone}}', profile?.phone ?? '');
 
   const form = content.querySelector('#my-profile-form');
+  const passwordForm = content.querySelector('#my-profile-password-form');
   const cancelButton = content.querySelector('#my-profile-cancel-btn');
 
   cancelButton?.addEventListener('click', () => {
@@ -26,15 +38,25 @@ export const renderProfileSection = (content) => {
     event.preventDefault();
 
     const payload = Object.fromEntries(new FormData(form).entries());
+    const currentProfile = {
+      full_name: profile?.full_name ?? null,
+      email: profile?.email ?? null,
+      phone: profile?.phone ?? null
+    };
+
+    if (!hasProfileChanges(payload, currentProfile)) {
+      navigateTo(isAdmin() && !isImpersonating() ? '/admin' : '/dashboard');
+      return;
+    }
 
     const { error } = await supabase
       .from('profiles')
       .upsert(
         {
           user_id: userId,
-          full_name: payload.full_name || null,
-          email: payload.email || null,
-          phone: payload.phone || null
+          full_name: normalizeText(payload.full_name),
+          email: normalizeText(payload.email),
+          phone: normalizeText(payload.phone)
         },
         { onConflict: 'user_id' }
       );
@@ -48,5 +70,33 @@ export const renderProfileSection = (content) => {
     await loadInitialData();
     await waitForToastVisibility();
     navigateTo(isAdmin() && !isImpersonating() ? '/admin' : '/dashboard');
+  });
+
+  passwordForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const payload = Object.fromEntries(new FormData(passwordForm).entries());
+    const nextPassword = String(payload.new_password ?? '');
+    const confirmPassword = String(payload.confirm_password ?? '');
+
+    if (!nextPassword || nextPassword.length < 6) {
+      notifyError('Password must be at least 6 characters.');
+      return;
+    }
+
+    if (nextPassword !== confirmPassword) {
+      notifyError('Password confirmation does not match.');
+      return;
+    }
+
+    const { error } = await supabase.auth.updateUser({ password: nextPassword });
+
+    if (error) {
+      notifyError(error.message || 'Failed to update password.');
+      return;
+    }
+
+    notifyInfo('Password updated.');
+    passwordForm.reset();
   });
 };

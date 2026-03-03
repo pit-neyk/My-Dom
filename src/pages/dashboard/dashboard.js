@@ -8,7 +8,7 @@ import statusPaidTemplate from './status-paid.html?raw';
 import statusPendingTemplate from './status-pending.html?raw';
 import actionEmptyTemplate from './action-empty.html?raw';
 import actionPayTemplate from './action-pay.html?raw';
-import { isAuthenticated, isAdmin, isImpersonating, getEffectiveUserId } from '../../features/auth/auth.js';
+import { isAuthenticated, isAdmin, isImpersonating, getCurrentSession, getEffectiveUserId } from '../../features/auth/auth.js';
 import { navigateTo } from '../../router/router.js';
 import { supabase } from '../../lib/supabase.js';
 import { notifyError, notifyInfo } from '../../components/toast/toast.js';
@@ -30,27 +30,117 @@ const formatCurrency = (value) =>
     maximumFractionDigits: 2
   }).format(value ?? 0);
 
+const toPaymentsArray = (payments) => {
+  if (Array.isArray(payments)) {
+    return payments;
+  }
+
+  if (payments && typeof payments === 'object') {
+    return [payments];
+  }
+
+  return [];
+};
+
+const isObligationPaid = (obligation) =>
+  toPaymentsArray(obligation?.payments).some((payment) => payment?.status === 'paid');
+
+const hasPositiveAmount = (obligation) => Number(obligation?.rate ?? 0) > 0;
+
+const isMissingPropertyContactsTableError = (error) =>
+  error?.code === 'PGRST205' || error?.code === '42P01' || error?.status === 404;
+
+const PROPERTY_WITH_OBLIGATIONS_SELECT = `
+  id, number, floor,
+  payment_obligations (
+    id, year, month, rate,
+    payments ( id, status, date ),
+    payment_rates ( is_active )
+  )
+`;
+
 // ─── Data fetchers ────────────────────────────────────────────────────────────
 
-const fetchUserObjects = async (userId) =>
-  supabase
+const fetchPropertiesByIds = async (propertyIds) => {
+  if (!propertyIds.length) {
+    return { data: [], error: null };
+  }
+
+  return supabase
     .from('properties')
-    .select(`
-      id, number, floor,
-      payment_obligations (
-        id, year, month, rate,
-        payments ( id, status, date ),
-        payment_rates ( is_active )
-      )
-    `)
+    .select(PROPERTY_WITH_OBLIGATIONS_SELECT)
+    .in('id', propertyIds)
+    .order('number');
+};
+
+const fetchOwnerContactPropertyIds = async (userEmail) => {
+  const normalizedEmail = String(userEmail ?? '').trim();
+  if (!normalizedEmail) {
+    return { data: [], error: null };
+  }
+
+  const { data, error } = await supabase
+    .from('property_contacts')
+    .select('property_id')
+    .eq('contact_type', 'owner')
+    .ilike('email', normalizedEmail);
+
+  if (error) {
+    if (isMissingPropertyContactsTableError(error)) {
+      return { data: [], error: null };
+    }
+
+    return { data: null, error };
+  }
+
+  const propertyIds = Array.from(
+    new Set((data ?? []).map((row) => row?.property_id).filter(Boolean))
+  );
+
+  return { data: propertyIds, error: null };
+};
+
+const fetchUserObjects = async (userId, userEmail) => {
+  const ownerRes = await supabase
+    .from('properties')
+    .select(PROPERTY_WITH_OBLIGATIONS_SELECT)
     .eq('owner_user_id', userId)
     .order('number');
 
+  if (ownerRes.error) {
+    return ownerRes;
+  }
+
+  const ownerObjects = ownerRes.data ?? [];
+  const ownerObjectIdSet = new Set(ownerObjects.map((property) => property.id));
+
+  const contactPropertyIdsRes = await fetchOwnerContactPropertyIds(userEmail);
+  if (contactPropertyIdsRes.error) {
+    return { data: null, error: contactPropertyIdsRes.error };
+  }
+
+  const additionalPropertyIds = (contactPropertyIdsRes.data ?? []).filter((id) => !ownerObjectIdSet.has(id));
+  if (!additionalPropertyIds.length) {
+    return { data: ownerObjects, error: null };
+  }
+
+  const contactRes = await fetchPropertiesByIds(additionalPropertyIds);
+  if (contactRes.error) {
+    return contactRes;
+  }
+
+  const merged = [...ownerObjects, ...(contactRes.data ?? [])].sort((left, right) =>
+    String(left.number ?? '').localeCompare(String(right.number ?? ''), undefined, {
+      numeric: true,
+      sensitivity: 'base'
+    })
+  );
+
+  return { data: merged, error: null };
+};
+
 const fetchBuildingFinancials = async () =>
   supabase.rpc('get_building_financials');
-
-const fetchBuildingPropertyOverview = async () =>
-  supabase.rpc('get_building_property_overview');
 
 const fetchMessages = async () =>
   supabase
@@ -58,6 +148,18 @@ const fetchMessages = async () =>
     .select('id,title,content_html,created_at')
     .order('created_at', { ascending: false })
     .limit(10);
+
+const fetchAllProperties = async () =>
+  supabase
+    .from('properties')
+    .select('id,number,floor')
+    .order('number');
+
+const fetchAllActiveObligations = async () =>
+  supabase
+    .from('payment_obligations')
+    .select('id,rate,independent_object_id,payments(id,status),payment_rates!inner(is_active)')
+    .eq('payment_rates.is_active', true);
 
 const payObligation = async ({ obligationId, userId }) => {
   const today = new Date().toISOString().split('T')[0];
@@ -88,8 +190,7 @@ const buildSummaryHTML = (financials, objects) => {
     // Fallback: compute from the user's own visible data
     for (const obj of objects) {
       for (const ob of (obj.payment_obligations ?? []).filter((item) => item.payment_rates?.is_active === true)) {
-        const payment = ob.payments?.[0];
-        if (payment?.status === 'paid') {
+        if (isObligationPaid(ob)) {
           collected += Number(ob.rate);
         } else {
           due += Number(ob.rate);
@@ -106,7 +207,7 @@ const buildSummaryHTML = (financials, objects) => {
 
 const buildObjectObligationsHTML = (obj, canPayActions) => {
   const obligations = [...(obj.payment_obligations ?? [])]
-    .filter((obligation) => obligation.payment_rates?.is_active === true)
+    .filter((obligation) => obligation.payment_rates?.is_active === true && hasPositiveAmount(obligation))
     .sort(
     (a, b) => b.year !== a.year ? b.year - a.year : b.month - a.month
   );
@@ -119,8 +220,8 @@ const buildObjectObligationsHTML = (obj, canPayActions) => {
   }
 
   const rows = obligations.map((ob) => {
-    const payment = ob.payments?.[0] ?? null;
-    const isPaid = payment?.status === 'paid';
+    const payment = toPaymentsArray(ob.payments)[0] ?? null;
+    const isPaid = isObligationPaid(ob);
 
     const statusBadge = isPaid ? statusPaidTemplate : statusPendingTemplate;
     const actionCell = isPaid || !canPayActions
@@ -145,21 +246,44 @@ const buildObjectObligationsHTML = (obj, canPayActions) => {
   });
 };
 
-const buildPropertiesOverviewHTML = (overview, objects) => {
-  let totalProperties = Number(overview?.total_properties ?? 0);
-  let withObligations = Number(overview?.with_obligations ?? 0);
-  let withoutObligations = Number(overview?.without_obligations ?? 0);
+const buildPropertiesOverviewCounts = (properties, obligations = null) => {
+  const totalProperties = properties.length;
 
-  if (!overview) {
-    totalProperties = objects.length;
-    withObligations = objects.filter((obj) =>
-      (obj.payment_obligations ?? [])
-        .filter((obligation) => obligation.payment_rates?.is_active === true)
-        .some((obligation) => obligation.payments?.[0]?.status !== 'paid')
-    ).length;
+  if (Array.isArray(obligations)) {
+    const dueByPropertyId = new Map(properties.map((property) => [property.id, 0]));
 
-    withoutObligations = totalProperties - withObligations;
+    obligations.forEach((obligation) => {
+      const propertyId = obligation.independent_object_id;
+      if (!dueByPropertyId.has(propertyId)) {
+        return;
+      }
+
+      if (!isObligationPaid(obligation)) {
+        const currentDue = Number(dueByPropertyId.get(propertyId) ?? 0);
+        dueByPropertyId.set(propertyId, currentDue + Number(obligation.rate ?? 0));
+      }
+    });
+
+    const withObligations = Array.from(dueByPropertyId.values()).filter((due) => due > 0).length;
+    const withoutObligations = totalProperties - withObligations;
+
+    return { totalProperties, withObligations, withoutObligations };
   }
+
+  const withObligations = properties.filter((obj) =>
+    (obj.payment_obligations ?? [])
+      .filter((obligation) => obligation.payment_rates?.is_active === true)
+      .some((obligation) => !isObligationPaid(obligation))
+  ).length;
+
+  return {
+    totalProperties,
+    withObligations,
+    withoutObligations: totalProperties - withObligations
+  };
+};
+
+const buildPropertiesOverviewHTML = ({ totalProperties, withObligations, withoutObligations }) => {
 
   return `
     <div class="row g-3 mb-4">
@@ -304,6 +428,7 @@ export const renderDashboardPage = async (container) => {
   renderDashboardLoadingState(stateSlot);
 
   const userId = getEffectiveUserId();
+  const userEmail = getCurrentSession()?.user?.email ?? '';
   const canPayActions = !(isAdmin() && isImpersonating());
 
   if (!userId) {
@@ -315,12 +440,14 @@ export const renderDashboardPage = async (container) => {
     { data: objects, error: objectsError },
     { data: financials, error: financialsError },
     { data: messages, error: messagesError },
-    { data: propertyOverview, error: propertyOverviewError }
+    { data: allProperties, error: allPropertiesError },
+    { data: allObligations, error: allObligationsError }
   ] = await Promise.all([
-    fetchUserObjects(userId),
+    fetchUserObjects(userId, userEmail),
     fetchBuildingFinancials(),
     fetchMessages(),
-    fetchBuildingPropertyOverview()
+    fetchAllProperties(),
+    fetchAllActiveObligations()
   ]);
 
   if (objectsError) {
@@ -337,17 +464,24 @@ export const renderDashboardPage = async (container) => {
     console.warn('Messages unavailable:', messagesError.message);
   }
 
-  if (propertyOverviewError) {
-    console.warn('Building property overview unavailable:', propertyOverviewError.message);
+  if (allPropertiesError) {
+    console.warn('All properties overview unavailable:', allPropertiesError.message);
+  }
+
+  if (allObligationsError) {
+    console.warn('All obligations overview unavailable:', allObligationsError.message);
   }
 
   const safeObjects = objects ?? [];
   const safeFinancials = financialsError ? null : financials;
   const safeMessages = messages ?? [];
-  const safePropertyOverview = propertyOverviewError ? null : propertyOverview;
+  const overviewCounts = buildPropertiesOverviewCounts(
+    (allPropertiesError ? safeObjects : (allProperties ?? [])),
+    allObligationsError ? null : (allObligations ?? [])
+  );
 
   stateSlot.innerHTML = buildSummaryHTML(safeFinancials, safeObjects);
-  stateSlot.insertAdjacentHTML('beforeend', buildPropertiesOverviewHTML(safePropertyOverview, safeObjects));
+  stateSlot.insertAdjacentHTML('beforeend', buildPropertiesOverviewHTML(overviewCounts));
   attachPropertiesOverviewHandlers(stateSlot);
 
   const messagesSection = document.createElement('div');

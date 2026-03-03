@@ -243,35 +243,6 @@ async function run() {
     .upsert(paymentsSeed, { onConflict: 'payment_obligation_id' });
   if (paymentsError) throw paymentsError;
 
-  const sampleEventTitles = ['[SAMPLE] Building General Assembly', '[SAMPLE] Elevator Maintenance', '[SAMPLE] Roof Inspection'];
-
-  const { error: deleteEventsError } = await supabase
-    .from('events')
-    .delete()
-    .in('title', sampleEventTitles);
-  if (deleteEventsError) throw deleteEventsError;
-
-  const eventsSeed = [
-    {
-      title: '[SAMPLE] Building General Assembly',
-      description: 'Monthly meeting for budget, repairs and building decisions.',
-      created_by: ensuredTargetUsers[0].id,
-    },
-    {
-      title: '[SAMPLE] Elevator Maintenance',
-      description: 'Scheduled maintenance by certified external contractor.',
-      created_by: ensuredTargetUsers[1].id,
-    },
-    {
-      title: '[SAMPLE] Roof Inspection',
-      description: 'Preventive inspection before autumn rainy season.',
-      created_by: ensuredTargetUsers[2].id,
-    },
-  ];
-
-  const { error: eventsInsertError } = await supabase.from('events').insert(eventsSeed);
-  if (eventsInsertError) throw eventsInsertError;
-
   const sampleDiscussionTitles = ['[SAMPLE] Parking Rules Update', '[SAMPLE] Intercom Replacement'];
 
   const { data: previousDiscussions, error: previousDiscussionsError } = await supabase
@@ -347,7 +318,7 @@ async function run() {
   console.log(`Admin ensured: ${ADMIN_USER.email} / ${ADMIN_USER.password}`);
   console.log(`Independent objects: ${independentObjects.length} (6 owned by target users)`);
   console.log(`Obligations (2025): ${obligationsSeed.length}, payments marked paid: 3`);
-  console.log(`Events: ${eventsSeed.length}, discussions: ${discussionsSeed.length}, messages: ${messagesSeed.length}`);
+  console.log(`Discussions: ${discussionsSeed.length}, messages: ${messagesSeed.length}`);
   console.log(`All seeded user IDs: ${[...allSeedUserIds, ensuredAdmin.id].join(', ')}`);
 }
 

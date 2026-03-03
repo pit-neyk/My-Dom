@@ -8,9 +8,17 @@ import rowTemplate from './messages-row.html?raw';
 import editIconSvg from '../../../../assets/icons/edit.svg?raw';
 import deleteIconSvg from '../../../../assets/icons/delete.svg?raw';
 import { fillTemplate } from '../../../../lib/template.js';
+import { clearViewState, readViewState, writeViewState } from '../../../../lib/view-state.js';
 import './messages.css';
 
+const MESSAGES_VIEW_STATE_KEY = 'admin_messages_section_state';
+
 export const renderMassMessagesSection = (content) => {
+  const viewState = readViewState(MESSAGES_VIEW_STATE_KEY, {
+    formOpen: false,
+    editingMessageId: ''
+  });
+
   const rows = state.messages
     .map((msg) =>
       fillTemplate(rowTemplate, {
@@ -37,23 +45,44 @@ export const renderMassMessagesSection = (content) => {
 
   const openMassMessageForm = () => {
     massMessageFormPanel.classList.remove('d-none');
+    writeViewState(MESSAGES_VIEW_STATE_KEY, { formOpen: true });
+  };
+
+  const closeMassMessageForm = () => {
+    clearViewState(MESSAGES_VIEW_STATE_KEY);
+    renderMassMessagesSection(content);
   };
 
   openMassMessageFormButton.addEventListener('click', () => {
     form.reset();
     form.elements.id.value = '';
+    writeViewState(MESSAGES_VIEW_STATE_KEY, {
+      formOpen: true,
+      editingMessageId: ''
+    });
     openMassMessageForm();
   });
 
-  closeMassMessageFormButton.addEventListener('click', () => {
-    renderMassMessagesSection(content);
-  });
+  closeMassMessageFormButton.addEventListener('click', closeMassMessageForm);
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
 
     const payload = Object.fromEntries(new FormData(form).entries());
     const messageId = payload.id;
+    const existingMessage = messageId
+      ? state.messages.find((msg) => msg.id === messageId) ?? null
+      : null;
+
+    if (existingMessage) {
+      const titleUnchanged = String(existingMessage.title ?? '').trim() === String(payload.title ?? '').trim();
+      const contentUnchanged = String(existingMessage.content_html ?? '').trim() === String(payload.content_html ?? '').trim();
+      if (titleUnchanged && contentUnchanged) {
+        clearViewState(MESSAGES_VIEW_STATE_KEY);
+        renderMassMessagesSection(content);
+        return;
+      }
+    }
 
     const savePayload = {
       title: payload.title,
@@ -77,6 +106,7 @@ export const renderMassMessagesSection = (content) => {
 
     notifyInfo(messageId ? 'Message updated.' : 'Message created.');
     await loadInitialData();
+    clearViewState(MESSAGES_VIEW_STATE_KEY);
     renderMassMessagesSection(content);
   });
 
@@ -88,6 +118,10 @@ export const renderMassMessagesSection = (content) => {
       form.elements.id.value = item.id;
       form.elements.title.value = item.title;
       form.elements.content_html.value = item.content_html;
+      writeViewState(MESSAGES_VIEW_STATE_KEY, {
+        formOpen: true,
+        editingMessageId: item.id
+      });
       openMassMessageForm();
     });
   });
@@ -106,7 +140,24 @@ export const renderMassMessagesSection = (content) => {
 
       notifyInfo('Message deleted.');
       await loadInitialData();
+      clearViewState(MESSAGES_VIEW_STATE_KEY);
       renderMassMessagesSection(content);
     });
   });
+
+  if (viewState.formOpen) {
+    if (viewState.editingMessageId) {
+      const item = state.messages.find((msg) => msg.id === viewState.editingMessageId);
+      if (item) {
+        form.elements.id.value = item.id;
+        form.elements.title.value = item.title;
+        form.elements.content_html.value = item.content_html;
+        openMassMessageForm();
+      } else {
+        clearViewState(MESSAGES_VIEW_STATE_KEY);
+      }
+    } else {
+      openMassMessageForm();
+    }
+  }
 };

@@ -1,5 +1,6 @@
 import { supabase } from '../../../../lib/supabase.js';
 import { notifyError, notifyInfo } from '../../../../components/toast/toast.js';
+import { navigateTo } from '../../../../router/router.js';
 import { state, loadObligationsData, MONTH_NAMES } from '../../adminState.js';
 import template from './payment-obligations.html?raw';
 import './payment-obligations.css';
@@ -44,7 +45,7 @@ const buildRowsMarkup = (rateId) => {
 
       return `
         <tr>
-          <td>Property ${property.number}</td>
+          <td>${property.number}</td>
           <td>
             <input
               class="form-control"
@@ -80,6 +81,17 @@ const saveRateObligations = async (rate, entries) => {
   }
 
   return true;
+};
+
+const hasObligationRateChanges = (rateId, entries) => {
+  const existingByProperty = buildObligationByPropertyMap(rateId);
+
+  return entries.some((entry) => {
+    const existing = existingByProperty.get(String(entry.propertyId));
+    const existingRate = toRateAmount(existing?.rate ?? 0);
+    const nextRate = toRateAmount(entry.rate);
+    return existingRate !== nextRate;
+  });
 };
 
 export const renderPaymentObligationsSection = async (content) => {
@@ -139,12 +151,17 @@ export const renderPaymentObligationsSection = async (content) => {
       rate: input.value
     }));
 
+    if (!hasObligationRateChanges(rate.id, entries)) {
+      navigateTo('/admin/panel?section=rates');
+      return;
+    }
+
     const saved = await saveRateObligations(rate, entries);
     if (!saved) {
       return;
     }
 
     notifyInfo('Payment obligations saved.');
-    await renderPaymentObligationsSection(content);
+    navigateTo('/admin/panel?section=rates');
   });
 };

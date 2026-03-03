@@ -7,10 +7,12 @@ import { navigateTo } from '../../router/router.js';
 import { supabase } from '../../lib/supabase.js';
 import { fillTemplate } from '../../lib/template.js';
 import { notifyError, notifyInfo, waitForToastVisibility } from '../../components/toast/toast.js';
+import { readViewState, writeViewState } from '../../lib/view-state.js';
 
 const DISCUSSION_ATTACHMENT_BUCKET = 'discussion-comment-attachments';
 const LEGACY_DISCUSSION_ATTACHMENT_BUCKET = 'signal-comment-attachments';
 const expandedDiscussionState = new Map();
+const DISCUSSIONS_VIEW_STATE_KEY = 'discussions_page_state';
 
 const escapeHtml = (value) =>
   String(value ?? '')
@@ -40,7 +42,15 @@ const isImageFile = (fileName) => {
 
 const getDisplayName = (profilesById, userId) => {
   const profile = profilesById.get(userId);
-  return profile?.full_name || profile?.email || 'Unknown user';
+  if (profile?.full_name) {
+    return profile.full_name;
+  }
+
+  if (profile?.email) {
+    return profile.email;
+  }
+
+  return userId || 'Unknown user';
 };
 
 const fetchDiscussionsBundle = async () => {
@@ -362,6 +372,9 @@ const attachDiscussionToggleHandlers = (container) => {
 
       const willExpand = content.hasAttribute('hidden');
       expandedDiscussionState.set(discussionId, willExpand);
+      writeViewState(DISCUSSIONS_VIEW_STATE_KEY, {
+        expandedById: Object.fromEntries(expandedDiscussionState.entries())
+      });
 
       if (willExpand) {
         content.removeAttribute('hidden');
@@ -522,7 +535,14 @@ const attachCreateDiscussionHandler = (container, refresh) => {
 
 export const renderDiscussionsPageContent = async (container, options = {}) => {
   const { readOnly = false } = options;
+  const persistedViewState = readViewState(DISCUSSIONS_VIEW_STATE_KEY, {
+    expandedById: {}
+  });
+
   expandedDiscussionState.clear();
+  Object.entries(persistedViewState.expandedById ?? {}).forEach(([discussionId, isExpanded]) => {
+    expandedDiscussionState.set(discussionId, Boolean(isExpanded));
+  });
 
   const listNode = container.querySelector('#discussions-list');
 

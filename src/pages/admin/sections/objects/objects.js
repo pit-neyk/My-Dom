@@ -14,8 +14,43 @@ import contactsHeaderTemplate from './objects-contacts-header.html?raw';
 import emptySecondaryTextTemplate from './empty-secondary-text.html?raw';
 import editIconSvg from '../../../../assets/icons/edit.svg?raw';
 import deleteIconSvg from '../../../../assets/icons/delete.svg?raw';
+import notoSansRegularFontUrl from '../../../../assets/fonts/NotoSans-Regular.ttf?url';
 import { fillTemplate } from '../../../../lib/template.js';
+import { getCurrentSession } from '../../../../features/auth/auth.js';
 import './objects.css';
+
+const PDF_FONT_FILE_NAME = 'NotoSans-Regular.ttf';
+const PDF_FONT_FAMILY_NAME = 'NotoSans';
+let cachedPdfFontBinary = null;
+
+const toBinaryString = (arrayBuffer) => {
+  const bytes = new Uint8Array(arrayBuffer);
+  const chunkSize = 0x8000;
+  let binary = '';
+
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    const chunk = bytes.subarray(index, index + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+
+  return binary;
+};
+
+const ensurePdfUnicodeFont = async (document) => {
+  if (!cachedPdfFontBinary) {
+    const response = await fetch(notoSansRegularFontUrl);
+
+    if (!response.ok) {
+      throw new Error('Failed to load PDF font.');
+    }
+
+    cachedPdfFontBinary = toBinaryString(await response.arrayBuffer());
+  }
+
+  document.addFileToVFS(PDF_FONT_FILE_NAME, cachedPdfFontBinary);
+  document.addFont(PDF_FONT_FILE_NAME, PDF_FONT_FAMILY_NAME, 'normal');
+  document.setFont(PDF_FONT_FAMILY_NAME, 'normal');
+};
 
 const CONTACT_TYPE_OPTIONS = [
   { value: 'owner', label: 'Owner' },
@@ -55,6 +90,69 @@ const PROPERTY_SORT_OPTIONS = [
   { value: 'contacts_asc', label: 'Contacts: Ascending' },
   { value: 'contacts_desc', label: 'Contacts: Descending' }
 ];
+
+const OBJECTS_VIEW_STATE_STORAGE_KEY = 'dom_admin_objects_view_state_v1';
+const DEFAULT_OBJECTS_VIEW_STATE = {
+  selectedPropertyId: '',
+  formOpen: false,
+  formMode: 'add',
+  contactFormOpen: false
+};
+
+const getObjectsViewStateScope = () => `user:${getCurrentSession()?.user?.id ?? 'guest'}`;
+
+const readObjectsViewStateStore = () => {
+  try {
+    const raw = window.sessionStorage.getItem(OBJECTS_VIEW_STATE_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
+const writeObjectsViewStateStore = (store) => {
+  try {
+    window.sessionStorage.setItem(OBJECTS_VIEW_STATE_STORAGE_KEY, JSON.stringify(store));
+  } catch {
+    // ignore storage failures
+  }
+};
+
+const readObjectsViewState = () => {
+  const store = readObjectsViewStateStore();
+  const scope = getObjectsViewStateScope();
+  const scoped = store[scope];
+
+  if (!scoped || typeof scoped !== 'object') {
+    return { ...DEFAULT_OBJECTS_VIEW_STATE };
+  }
+
+  return {
+    ...DEFAULT_OBJECTS_VIEW_STATE,
+    ...scoped
+  };
+};
+
+const setObjectsViewState = (nextState) => {
+  const store = readObjectsViewStateStore();
+  const scope = getObjectsViewStateScope();
+  const current = readObjectsViewState();
+
+  store[scope] = {
+    ...current,
+    ...nextState
+  };
+
+  writeObjectsViewStateStore(store);
+};
+
+const clearObjectsViewState = () => {
+  const store = readObjectsViewStateStore();
+  const scope = getObjectsViewStateScope();
+  store[scope] = { ...DEFAULT_OBJECTS_VIEW_STATE };
+  writeObjectsViewStateStore(store);
+};
 
 const isMissingPropertyContactsTableError = (error) =>
   error?.code === 'PGRST205' || error?.code === '42P01' || error?.status === 404;
@@ -239,6 +337,72 @@ const toPropertyContactPayload = (contactPayload, propertyId, includePeriod = tr
   return payload;
 };
 
+const normalizeText = (value) => {
+  const trimmed = String(value ?? '').trim();
+  return trimmed === '' ? null : trimmed;
+};
+
+const normalizeNumberOrNull = (value) => {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+const buildComparablePropertyPayload = (payload) => ({
+  number: normalizeText(payload.number),
+  floor: Number(payload.floor),
+  property_type: normalizeText(payload.property_type),
+  tenants_count: payload.tenants_count === '' ? 0 : Number(payload.tenants_count),
+  pets_count: payload.pets_count === '' ? 0 : Number(payload.pets_count),
+  square_meters: normalizeNumberOrNull(payload.square_meters),
+  ideal_parts: normalizeNumberOrNull(payload.ideal_parts)
+});
+
+const buildComparableExistingProperty = (item) => ({
+  number: normalizeText(item?.number),
+  floor: Number(item?.floor),
+  property_type: normalizeText(item?.property_type),
+  tenants_count: Number(item?.tenants_count ?? 0),
+  pets_count: Number(item?.pets_count ?? 0),
+  square_meters: normalizeNumberOrNull(item?.square_meters),
+  ideal_parts: normalizeNumberOrNull(item?.ideal_parts)
+});
+
+const hasPropertyChanges = (payload, existingItem) => {
+  if (!existingItem) {
+    return true;
+  }
+
+  const nextValue = buildComparablePropertyPayload(payload);
+  const currentValue = buildComparableExistingProperty(existingItem);
+
+  return JSON.stringify(nextValue) !== JSON.stringify(currentValue);
+};
+
+const buildComparableContact = (contact) => ({
+  first_name: normalizeText(contact?.first_name),
+  family_name: normalizeText(contact?.family_name),
+  email: normalizeText(contact?.email),
+  phone: normalizeText(contact?.phone),
+  contact_type: normalizeText(contact?.contact_type),
+  start_date: normalizeText(contact?.start_date),
+  end_date: normalizeText(contact?.end_date)
+});
+
+const hasContactChanges = (nextPayload, existingContact) => {
+  if (!existingContact) {
+    return true;
+  }
+
+  const nextValue = buildComparableContact(nextPayload);
+  const currentValue = buildComparableContact(existingContact);
+
+  return JSON.stringify(nextValue) !== JSON.stringify(currentValue);
+};
+
 const insertPropertyContacts = async (contactsPayload) => {
   const initialInsertRes = await supabase.from('property_contacts').insert(contactsPayload);
 
@@ -291,8 +455,13 @@ const updatePropertyContact = async (contactId, contactPayload, propertyId) => {
 };
 
 export const renderObjectsSection = (content, options = {}) => {
-  const selectedPropertyId = options.selectedPropertyId ?? '';
+  const persistedViewState = readObjectsViewState();
+  const selectedPropertyId = options.selectedPropertyId ?? persistedViewState.selectedPropertyId ?? '';
   const sortBy = options.sortBy ?? 'number_asc';
+  const propertyDraft = options.propertyDraft ?? null;
+  const initialFormOpen = options.formOpen ?? persistedViewState.formOpen ?? false;
+  const initialFormMode = options.formMode ?? persistedViewState.formMode ?? 'add';
+  const initialContactFormOpen = options.contactFormOpen ?? persistedViewState.contactFormOpen ?? false;
   const propertyContactsEnabled = state.propertyContactsEnabled !== false;
 
   const rowsData = state.objects.map((item) => {
@@ -356,7 +525,6 @@ export const renderObjectsSection = (content, options = {}) => {
     )
     .join('');
 
-  const propertySortOptions = '';
   const propertyTypeOptions = '';
   const contactTypeOptions = '';
   const propertyContactsPanelMarkup = propertyContactsEnabled
@@ -364,7 +532,6 @@ export const renderObjectsSection = (content, options = {}) => {
     : '';
 
   content.innerHTML = template
-    .replace('{{propertySortOptions}}', propertySortOptions)
     .replace('{{contactsHeader}}', propertyContactsEnabled ? contactsHeaderTemplate : '')
     .replace('{{rows}}', rows)
     .replace('{{propertyTypeOptions}}', propertyTypeOptions)
@@ -375,7 +542,6 @@ export const renderObjectsSection = (content, options = {}) => {
   enableTableColumnFilters(content);
 
   const openPropertyFormButton = content.querySelector('#open-property-form-btn');
-  const propertySortSelect = content.querySelector('#property-sort-select');
   const propertyTypeSelect = content.querySelector('select[name="property_type"]');
   const downloadPropertiesXlsxButton = content.querySelector('#download-properties-xlsx-btn');
   const downloadPropertiesPdfButton = content.querySelector('#download-properties-pdf-btn');
@@ -389,14 +555,6 @@ export const renderObjectsSection = (content, options = {}) => {
   const propertyContactTypeSelect = propertyContactForm?.elements?.contact_type;
   const cancelPropertyContactButton = content.querySelector('#cancel-property-contact-btn');
   const propertyContactsList = content.querySelector('#property-contacts-list');
-
-  PROPERTY_SORT_OPTIONS.forEach((option) => {
-    const optionNode = document.createElement('option');
-    optionNode.value = option.value;
-    optionNode.textContent = option.label;
-    optionNode.selected = option.value === sortBy;
-    propertySortSelect.appendChild(optionNode);
-  });
 
   PROPERTY_TYPE_OPTIONS.forEach((option) => {
     const optionNode = document.createElement('option');
@@ -417,6 +575,15 @@ export const renderObjectsSection = (content, options = {}) => {
   let draftPropertyContacts = [];
   let draftContactCounter = 0;
   let editingInlineContactId = '';
+
+  const syncObjectsViewState = () => {
+    setObjectsViewState({
+      selectedPropertyId: propertyFormMode === 'edit' ? activePropertyId : '',
+      formOpen: !propertyFormPanel.classList.contains('d-none'),
+      formMode: propertyFormMode,
+      contactFormOpen: Boolean(propertyContactForm && !propertyContactForm.classList.contains('d-none'))
+    });
+  };
 
   content.prepend(propertyFormPanel);
 
@@ -440,12 +607,22 @@ export const renderObjectsSection = (content, options = {}) => {
     XLSX.writeFile(workbook, 'properties.xlsx');
   };
 
-  const exportPropertiesToPdf = () => {
+  const exportPropertiesToPdf = async () => {
     const document = new jsPDF({ orientation: 'landscape' });
+
+    try {
+      await ensurePdfUnicodeFont(document);
+    } catch (error) {
+      notifyError(error.message || 'Failed to prepare Unicode font for PDF export.');
+      return;
+    }
+
     autoTable(document, {
       head: [['Number', 'Floor', 'Sq m', 'Tenants', 'Owner', 'Contacts']],
       body: exportRows.map((row) => [String(row.number), String(row.floor), String(row.squareMeters), String(row.tenants), String(row.owner), String(row.contacts)]),
-      styles: { fontSize: 9 }
+      styles: { font: PDF_FONT_FAMILY_NAME, fontSize: 9 },
+      headStyles: { font: PDF_FONT_FAMILY_NAME },
+      bodyStyles: { font: PDF_FONT_FAMILY_NAME }
     });
     document.save('properties.pdf');
   };
@@ -465,12 +642,14 @@ export const renderObjectsSection = (content, options = {}) => {
     propertyFormPanel.classList.remove('d-none');
     syncAddPropertyButtonVisibility();
     syncPropertiesListVisibility();
+    syncObjectsViewState();
   };
 
   const closeForm = () => {
     propertyFormPanel.classList.add('d-none');
     syncAddPropertyButtonVisibility();
     syncPropertiesListVisibility();
+    syncObjectsViewState();
   };
 
   const resetPropertyContactForm = () => {
@@ -483,12 +662,14 @@ export const renderObjectsSection = (content, options = {}) => {
     if (!propertyContactForm) return;
     propertyContactForm.classList.remove('d-none');
     resetPropertyContactForm();
+    syncObjectsViewState();
   };
 
   const closePropertyContactForm = () => {
     if (!propertyContactForm) return;
     propertyContactForm.classList.add('d-none');
     resetPropertyContactForm();
+    syncObjectsViewState();
   };
 
   const renderPropertyContactsList = (propertyId) => {
@@ -594,6 +775,13 @@ export const renderObjectsSection = (content, options = {}) => {
         }
 
         const contactPayload = Object.fromEntries(new FormData(inlineForm).entries());
+        const existingContact = contactsToRender.find((contact) => (isDraftMode ? contact.temp_id : contact.id) === inlineContactId);
+
+        if (!hasContactChanges(contactPayload, existingContact)) {
+          editingInlineContactId = '';
+          renderPropertyContactsList(resolvedPropertyId);
+          return;
+        }
 
         if (isDraftMode) {
           draftPropertyContacts = draftPropertyContacts.map((contact) => {
@@ -640,7 +828,12 @@ export const renderObjectsSection = (content, options = {}) => {
           return;
         }
 
-        renderObjectsSection(content, { selectedPropertyId: resolvedPropertyId, sortBy });
+        const propertyFormDraft = capturePropertyFormDraft();
+        renderObjectsSection(content, {
+          selectedPropertyId: resolvedPropertyId,
+          sortBy,
+          propertyDraft: propertyFormDraft
+        });
       });
     });
 
@@ -670,7 +863,12 @@ export const renderObjectsSection = (content, options = {}) => {
           return;
         }
 
-        renderObjectsSection(content, { selectedPropertyId: propertyId, sortBy });
+        const propertyFormDraft = capturePropertyFormDraft();
+        renderObjectsSection(content, {
+          selectedPropertyId: propertyId,
+          sortBy,
+          propertyDraft: propertyFormDraft
+        });
       });
     });
 
@@ -692,6 +890,7 @@ export const renderObjectsSection = (content, options = {}) => {
     propertyContactsPanel.classList.remove('d-none');
     closePropertyContactForm();
     renderPropertyContactsList(property.id);
+    syncObjectsViewState();
   };
 
   const showDraftPropertyContacts = () => {
@@ -703,6 +902,7 @@ export const renderObjectsSection = (content, options = {}) => {
     propertyContactsPanel.classList.remove('d-none');
     closePropertyContactForm();
     renderPropertyContactsList('');
+    syncObjectsViewState();
   };
 
   const hidePropertyContacts = () => {
@@ -713,6 +913,7 @@ export const renderObjectsSection = (content, options = {}) => {
     propertyContactsPanel.classList.add('d-none');
     closePropertyContactForm();
     propertyContactsList.innerHTML = '';
+    syncObjectsViewState();
   };
 
   const setFormMode = (mode) => {
@@ -727,6 +928,7 @@ export const renderObjectsSection = (content, options = {}) => {
 
     syncAddPropertyButtonVisibility();
     syncPropertiesListVisibility();
+    syncObjectsViewState();
   };
 
   const fillPropertyForm = (item) => {
@@ -740,6 +942,42 @@ export const renderObjectsSection = (content, options = {}) => {
     form.elements.ideal_parts.value = item.ideal_parts ?? '';
   };
 
+  const capturePropertyFormDraft = () => {
+    if (propertyFormMode !== 'edit') {
+      return null;
+    }
+
+    const draftPropertyId = String(form.elements.id.value || activePropertyId || '');
+    if (!draftPropertyId) {
+      return null;
+    }
+
+    return {
+      id: draftPropertyId,
+      number: form.elements.number.value,
+      floor: form.elements.floor.value,
+      property_type: form.elements.property_type.value,
+      tenants_count: form.elements.tenants_count.value,
+      pets_count: form.elements.pets_count.value,
+      square_meters: form.elements.square_meters.value,
+      ideal_parts: form.elements.ideal_parts.value
+    };
+  };
+
+  const applyPropertyFormDraft = (draft) => {
+    if (!draft || String(draft.id) !== String(form.elements.id.value)) {
+      return;
+    }
+
+    form.elements.number.value = draft.number ?? '';
+    form.elements.floor.value = draft.floor ?? '';
+    form.elements.property_type.value = draft.property_type ?? '';
+    form.elements.tenants_count.value = draft.tenants_count ?? '';
+    form.elements.pets_count.value = draft.pets_count ?? '';
+    form.elements.square_meters.value = draft.square_meters ?? '';
+    form.elements.ideal_parts.value = draft.ideal_parts ?? '';
+  };
+
   openPropertyFormButton.addEventListener('click', () => {
     form.reset();
     form.elements.id.value = '';
@@ -748,15 +986,18 @@ export const renderObjectsSection = (content, options = {}) => {
     openForm();
   });
 
-  propertySortSelect.addEventListener('change', () => {
-    renderObjectsSection(content, { sortBy: propertySortSelect.value });
-  });
-
   downloadPropertiesXlsxButton.addEventListener('click', exportPropertiesToXlsx);
   downloadPropertiesPdfButton.addEventListener('click', exportPropertiesToPdf);
 
   closeFormButton.addEventListener('click', () => {
-    renderObjectsSection(content, { sortBy });
+    clearObjectsViewState();
+    renderObjectsSection(content, {
+      sortBy,
+      selectedPropertyId: '',
+      formMode: 'add',
+      formOpen: false,
+      contactFormOpen: false
+    });
   });
 
   if (propertyContactsEnabled && openPropertyContactFormButton) {
@@ -772,6 +1013,21 @@ export const renderObjectsSection = (content, options = {}) => {
 
     const payload = Object.fromEntries(new FormData(form).entries());
     const propertyId = payload.id;
+    const existingProperty = propertyId
+      ? state.objects.find((item) => String(item.id) === String(propertyId)) ?? null
+      : null;
+
+    if (propertyId && !hasPropertyChanges(payload, existingProperty)) {
+      clearObjectsViewState();
+      renderObjectsSection(content, {
+        sortBy,
+        selectedPropertyId: '',
+        formMode: 'add',
+        formOpen: false,
+        contactFormOpen: false
+      });
+      return;
+    }
 
     const savePayload = {
       number: payload.number,
@@ -817,7 +1073,14 @@ export const renderObjectsSection = (content, options = {}) => {
       return;
     }
 
-    renderObjectsSection(content, { sortBy });
+    clearObjectsViewState();
+    renderObjectsSection(content, {
+      sortBy,
+      selectedPropertyId: '',
+      formMode: 'add',
+      formOpen: false,
+      contactFormOpen: false
+    });
   });
 
   if (propertyContactsEnabled && propertyContactForm) {
@@ -867,7 +1130,12 @@ export const renderObjectsSection = (content, options = {}) => {
         return;
       }
 
-      renderObjectsSection(content, { selectedPropertyId: activePropertyId, sortBy });
+      const propertyFormDraft = capturePropertyFormDraft();
+      renderObjectsSection(content, {
+        selectedPropertyId: activePropertyId,
+        sortBy,
+        propertyDraft: propertyFormDraft
+      });
     });
   }
 
@@ -880,6 +1148,7 @@ export const renderObjectsSection = (content, options = {}) => {
       setFormMode('edit');
       openForm();
       showPropertyContacts(item);
+      syncObjectsViewState();
     });
   });
 
@@ -888,12 +1157,25 @@ export const renderObjectsSection = (content, options = {}) => {
 
     if (selectedProperty) {
       fillPropertyForm(selectedProperty);
+      applyPropertyFormDraft(propertyDraft);
       setFormMode('edit');
       openForm();
       showPropertyContacts(selectedProperty);
+
+      if (propertyContactsEnabled && initialContactFormOpen) {
+        openPropertyContactForm();
+      }
     } else {
       setFormMode('add');
       closeForm();
+      clearObjectsViewState();
+    }
+  } else if (initialFormOpen && initialFormMode === 'add') {
+    setFormMode('add');
+    openForm();
+
+    if (propertyContactsEnabled && initialContactFormOpen) {
+      openPropertyContactForm();
     }
   } else {
     setFormMode('add');
@@ -921,6 +1203,7 @@ export const renderObjectsSection = (content, options = {}) => {
       }
 
       renderObjectsSection(content, { sortBy });
+      clearObjectsViewState();
     });
   });
 };

@@ -71,6 +71,8 @@ const toPaymentsArray = (payments) => {
 const isObligationPaid = (obligation) =>
   toPaymentsArray(obligation.payments).some((payment) => payment?.status === 'paid');
 
+const hasPositiveAmount = (obligation) => Number(obligation?.rate ?? 0) > 0;
+
 const loadAdminHomeData = async () => {
   const [
     propertiesRes,
@@ -171,7 +173,9 @@ export const renderAdminHomePage = async (container) => {
   const safeObligations = obligations ?? [];
   const safeMessages = messages ?? [];
 
-  const pendingObligations = safeObligations.filter((obligation) => !isObligationPaid(obligation));
+  const pendingObligations = safeObligations.filter((obligation) =>
+    hasPositiveAmount(obligation) && !isObligationPaid(obligation)
+  );
   const propertiesWithPendingSet = new Set(pendingObligations.map((obligation) => obligation.independent_object_id));
 
   const withDebt = safeProperties.filter((property) => propertiesWithPendingSet.has(property.id)).length;
