@@ -455,13 +455,27 @@ const updatePropertyContact = async (contactId, contactPayload, propertyId) => {
 };
 
 export const renderObjectsSection = (content, options = {}) => {
+  const resetToList = options.resetToList === true;
+
+  if (resetToList) {
+    clearObjectsViewState();
+  }
+
   const persistedViewState = readObjectsViewState();
-  const selectedPropertyId = options.selectedPropertyId ?? persistedViewState.selectedPropertyId ?? '';
+  const selectedPropertyId = resetToList
+    ? ''
+    : (options.selectedPropertyId ?? persistedViewState.selectedPropertyId ?? '');
   const sortBy = options.sortBy ?? 'number_asc';
   const propertyDraft = options.propertyDraft ?? null;
-  const initialFormOpen = options.formOpen ?? persistedViewState.formOpen ?? false;
-  const initialFormMode = options.formMode ?? persistedViewState.formMode ?? 'add';
-  const initialContactFormOpen = options.contactFormOpen ?? persistedViewState.contactFormOpen ?? false;
+  const initialFormOpen = resetToList
+    ? false
+    : (options.formOpen ?? persistedViewState.formOpen ?? false);
+  const initialFormMode = resetToList
+    ? 'add'
+    : (options.formMode ?? persistedViewState.formMode ?? 'add');
+  const initialContactFormOpen = resetToList
+    ? false
+    : (options.contactFormOpen ?? persistedViewState.contactFormOpen ?? false);
   const propertyContactsEnabled = state.propertyContactsEnabled !== false;
 
   const rowsData = state.objects.map((item) => {

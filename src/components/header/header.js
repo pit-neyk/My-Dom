@@ -77,7 +77,7 @@ export const renderHeader = (currentPath = '/') => {
       const returnAdminButton = linksContainer.querySelector('#header-return-admin-btn');
       returnAdminButton?.addEventListener('click', () => {
         stopImpersonation();
-        navigateToPath('/admin/panel');
+        navigateToPath('/admin');
       });
     }
 

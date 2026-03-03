@@ -58,10 +58,12 @@ const renderErrorMessage = (container, message) => {
   container.appendChild(text);
 };
 
-const renderSection = async (sectionId, content) => {
+const renderSection = async (sectionId, content, options = {}) => {
   switch (sectionId) {
     case 'objects':
-      renderObjectsSection(content);
+      renderObjectsSection(content, {
+        resetToList: options.resetObjectsToList === true
+      });
       break;
     case 'rates':
       await renderRatesSection(content);
@@ -122,15 +124,17 @@ export const renderAdminPanelPage = async (container) => {
 
   const initialSectionId = getRequestedSectionId();
 
-  const renderSectionAndSyncNav = async (sectionId) => {
-    await renderSection(sectionId, content);
+  const renderSectionAndSyncNav = async (sectionId, options = {}) => {
+    await renderSection(sectionId, content, options);
 
     if (sectionId === 'discussions') {
       markAdminDiscussionsAsSeen();
     }
 
     renderNav(nav, (nextSectionId) => {
-      renderSectionAndSyncNav(nextSectionId).catch((error) => {
+      renderSectionAndSyncNav(nextSectionId, {
+        resetObjectsToList: nextSectionId === 'objects'
+      }).catch((error) => {
         notifyError(error.message || 'Failed to load admin section.');
         renderErrorMessage(content, 'Unable to load this admin section.');
       });

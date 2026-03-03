@@ -290,24 +290,33 @@ const buildPropertiesOverviewHTML = ({ totalProperties, withObligations, without
       <div class="col-12 col-md-4">
         <div class="card border-0 shadow-sm h-100 dashboard-summary-card" data-dashboard-filter="all">
           <div class="card-body">
-            <p class="summary-label text-secondary">Properties</p>
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--dom-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+              <p class="summary-label text-secondary mb-0">Properties</p>
+            </div>
             <p class="summary-amount text-secondary mb-0">${totalProperties}</p>
-          </div>
-        </div>
-      </div>
-      <div class="col-12 col-md-4">
-        <div class="card border-0 shadow-sm h-100 dashboard-summary-card dashboard-filter-card" data-dashboard-filter="debt" role="button" tabindex="0" aria-label="View properties with obligations">
-          <div class="card-body">
-            <p class="summary-label text-danger">With Obligations</p>
-            <p class="summary-amount text-danger mb-0">${withObligations}</p>
           </div>
         </div>
       </div>
       <div class="col-12 col-md-4">
         <div class="card border-0 shadow-sm h-100 dashboard-summary-card dashboard-filter-card" data-dashboard-filter="clear" role="button" tabindex="0" aria-label="View properties without obligations">
           <div class="card-body">
-            <p class="summary-label text-success">Without Obligations</p>
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--dom-success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <p class="summary-label text-success mb-0">Without Obligations</p>
+            </div>
             <p class="summary-amount text-success mb-0">${withoutObligations}</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-md-4">
+        <div class="card border-0 shadow-sm h-100 dashboard-summary-card dashboard-filter-card" data-dashboard-filter="debt" role="button" tabindex="0" aria-label="View properties with obligations">
+          <div class="card-body">
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--dom-danger)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <p class="summary-label text-danger mb-0">With Obligations</p>
+            </div>
+            <p class="summary-amount text-danger mb-0">${withObligations}</p>
           </div>
         </div>
       </div>
@@ -488,7 +497,10 @@ export const renderDashboardPage = async (container) => {
   messagesSection.className = 'card border-0 shadow-sm mb-4';
   messagesSection.innerHTML = `
     <div class="card-body">
-      <h2 class="h5 mb-3">Messages</h2>
+      <h2 class="h5 mb-3 d-flex align-items-center gap-2">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--dom-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Messages
+      </h2>
       <div class="dashboard-messages-list">${buildMessagesHTML(safeMessages)}</div>
     </div>
   `;

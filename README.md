@@ -1,6 +1,27 @@
 # My-Dom
 DOM is an application for Home Building Managers and people, living in a shared Home Building, built with JS and Supabase.
 
+## Project documentation
+
+- Full project documentation: [docs/PROJECT_DOCUMENTATION.md](docs/PROJECT_DOCUMENTATION.md)
+
+## Documentation index
+
+- Testing
+	- Test scripts: [package.json](package.json)
+	- Unit tests: [tests/unit](tests/unit)
+	- Integration tests: [tests/integration](tests/integration)
+	- E2E tests: [tests/e2e](tests/e2e)
+- Build tooling
+	- Vite config: [vite.config.js](vite.config.js)
+	- Playwright config: [playwright.config.js](playwright.config.js)
+- Database migrations
+	- SQL migrations: [supabase/migrations](supabase/migrations)
+	- Seed data script: [supabase/seeds/seed-sample-data.js](supabase/seeds/seed-sample-data.js)
+- Deployment notes
+	- Netlify deployment section: [README.md#netlify-deploy-setup](README.md#netlify-deploy-setup)
+	- Netlify config: [netlify.toml](netlify.toml)
+
 ## Auth setup
 
 1. Create a `.env` file from `.env.example`.
