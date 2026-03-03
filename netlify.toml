@@ -5,6 +5,7 @@
 [build.environment]
   VITE_SUPABASE_URL = "https://trggitswestuzklttdwv.supabase.co"
   VITE_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_IQSZP2-J8fbFKuexLXOJbw_IjdsvsRI"
+  VITE_PUBLIC_APP_URL = "https://my-dom.netlify.app/"
 
 [[redirects]]
   from = "/*"

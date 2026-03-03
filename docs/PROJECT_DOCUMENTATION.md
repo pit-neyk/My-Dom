@@ -38,6 +38,7 @@ Classical client-server architecture:
 - **Client (SPA)**: Vite + Vanilla JavaScript + Bootstrap + HTML/CSS.
 - **Backend services**: Supabase (PostgreSQL, Auth, Storage, RLS, SQL functions).
 - **Hosting**: Netlify (frontend).
+- **Production URL**: [https://my-dom.netlify.app/](https://my-dom.netlify.app/).
 
 ### Front-end
 

@@ -1,6 +1,10 @@
 # My-Dom
 DOM is an application for Home Building Managers and people, living in a shared Home Building, built with JS and Supabase.
 
+## Live Demo
+
+- Production URL: [https://my-dom.netlify.app/](https://my-dom.netlify.app/)
+
 ## Project documentation
 
 - Full project documentation: [docs/PROJECT_DOCUMENTATION.md](docs/PROJECT_DOCUMENTATION.md)
@@ -21,6 +25,7 @@ DOM is an application for Home Building Managers and people, living in a shared 
 - Deployment notes
 	- Netlify deployment section: [README.md#netlify-deploy-setup](README.md#netlify-deploy-setup)
 	- Netlify config: [netlify.toml](netlify.toml)
+	- Production URL: [https://my-dom.netlify.app/](https://my-dom.netlify.app/)
 
 ## Auth setup
 
@@ -31,6 +36,10 @@ DOM is an application for Home Building Managers and people, living in a shared 
 3. Run the app with `npm run dev`.
 
 ## Netlify deploy setup
+
+Production deployment is hosted on Netlify at:
+
+- [https://my-dom.netlify.app/](https://my-dom.netlify.app/)
 
 For production deploys, Netlify must have the same frontend env vars available at build time:
 
@@ -51,7 +60,8 @@ In Netlify:
 
 ## Admin account and panel
 
-- Admin credentials (seeded): `admin@admin.com` / `admin123`
+- Admin credentials (seeded): `admin@admin.com` / `pitneykadmin123`
+- User credentials (seeded): `stevenak@admin.com` / `pass123`
 - Admin route: `/admin`
 - Run seed to ensure admin exists: `npm run seed:sample`
 - Admin can manage properties, owners/contact details, obligations, documents, mass messages, impersonation mode, and own profile.
